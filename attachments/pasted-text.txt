@@ -1,0 +1,351 @@
+CamOS — NEXT DEVELOPMENT PHASE
+
+Workspace Intelligence, Operational Depth & Functional Engineering
+
+The current CamOS interface has undergone a significant design refinement.
+
+The product identity is CamOS.
+
+DanielMac remains the professional identity of the owner.
+Cam Leinad remains the artist identity.
+CAM remains the independent music label.
+Classic Brand remains the clothing customization business.
+
+The latest interface improvements are established design decisions. Preserve them.
+
+Your next assignment is NOT another visual redesign.
+
+Your assignment is to transform the existing CamOS interface into a fully functional, interconnected, operational personal operating system.
+
+1. FIRST: AUDIT THE EXISTING IMPLEMENTATION
+
+Inspect the actual application, source code, routes, components, database, existing state management, and current functionality.
+
+Do not assume that features work simply because they appear in the interface.
+
+Identify:
+
+- Existing functional modules.
+- Incomplete modules.
+- Mock data.
+- Nonfunctional buttons.
+- Duplicate components.
+- Repeated page structures.
+- Inconsistent workspace behavior.
+- Missing database operations.
+- Broken navigation.
+- Missing relationships between records.
+- Unimplemented mobile interactions.
+- Security and data integrity problems.
+
+Produce an implementation audit.
+
+Do not replace functioning components unnecessarily.
+
+Do not destroy existing work to rebuild it from scratch.
+
+2. ENFORCE WORKSPACE-SPECIFIC FUNCTIONALITY
+
+Every workspace must have its own operational model.
+
+CAM LEINAD — LABEL OFFICE
+
+Implement:
+
+- Artist catalog.
+- Release records.
+- Album and EP management.
+- Track metadata.
+- Sessions.
+- Recording progress.
+- Production notes.
+- Distribution status.
+- Royalty records.
+- Release scheduling.
+- Catalog search.
+- Artwork management.
+
+The catalog should support individual release detail views.
+
+Every release should have its own tracklist, metadata, artwork, release status, and associated financial records.
+
+Maintain the established album sleeve and catalog spine design.
+
+Do not turn the label office back into a generic numbered dashboard.
+
+CLASSIC BRAND — JOB DOCKET
+
+Implement:
+
+- Customer records.
+- Customer order history.
+- Job creation.
+- Quotations.
+- Payments.
+- Outstanding balances.
+- Production stages.
+- Garment specifications.
+- Design attachments.
+- Production costs.
+- Material inventory.
+- Quality control.
+- Completed jobs.
+
+Each job must have a detailed job ticket.
+
+Support the workflow:
+
+Inquiry → Quotation → Approval → Payment → Design → Production → Quality Control → Collection → Completed.
+
+The job board must reflect actual database records.
+
+DEVELOPMENT LAB
+
+Implement:
+
+- Project registry.
+- Project details.
+- Repository information.
+- Technology stacks.
+- Deployment URLs.
+- Project status.
+- Technical documentation.
+- Bugs.
+- Feature requests.
+- Milestones.
+- Development logs.
+- Architecture records.
+- Deployment history.
+
+Allow a project to have multiple technical documents, issues, and development milestones.
+
+FINANCIAL LEDGER
+
+Implement:
+
+- Personal financial records.
+- Independent business books.
+- Income.
+- Expenses.
+- Transfers.
+- Savings.
+- Liabilities.
+- Equipment investments.
+- Actual financial balances.
+- Projected financial balances.
+- Monthly reporting.
+
+Support UGX and USD as currencies.
+
+Never combine currencies without explicit exchange-rate conversion.
+
+Never mix actual figures with projected figures.
+
+Every financial transaction must have a date, amount, currency, category, description, and relevant account or business.
+
+Provide auditable transaction histories.
+
+LEARNING AND KNOWLEDGE
+
+Implement:
+
+- Learning paths.
+- Courses.
+- Study sessions.
+- Notes.
+- Resources.
+- Exercises.
+- Quizzes.
+- Learning progress.
+- Knowledge collections.
+- Research records.
+
+Progress must reflect actual completed activities.
+
+IDEA INCUBATOR
+
+Implement:
+
+- Idea capture.
+- Research.
+- Validation.
+- Feasibility.
+- Resource requirements.
+- Estimated costs.
+- Business models.
+- Development roadmaps.
+- Status transitions.
+
+Allow ideas to become actual projects without duplicating their original information.
+
+3. BUILD THE CROSS-WORKSPACE DATA MODEL
+
+Design relationships between workspaces carefully.
+
+Examples:
+
+A music release can have:
+
+- Production expenses.
+- Marketing expenses.
+- Distribution records.
+- Royalty records.
+- Associated tasks.
+
+A Classic Brand job can have:
+
+- Customer.
+- Garment specifications.
+- Materials.
+- Production costs.
+- Payments.
+- Outstanding balances.
+
+A software project can have:
+
+- Repository.
+- Deployment.
+- Technical documents.
+- Bugs.
+- Milestones.
+- Development expenses.
+
+A financial transaction can reference the relevant business, project, or activity.
+
+Maintain independent records while allowing consolidated reporting.
+
+Avoid circular dependencies and unnecessary database complexity.
+
+4. BUILD THE AI COMMAND CENTER
+
+The AI must become capable of answering questions using authorized CamOS records.
+
+Examples:
+
+- Which Classic Brand orders are overdue?
+- What is the outstanding customer balance?
+- How much has Cam Leinad spent on production this month?
+- Which development projects have not progressed?
+- What are my actual monthly expenses?
+- Which projects have the strongest near-term opportunities?
+- What should I prioritize today?
+
+The AI should distinguish actual records from assumptions.
+
+It must never invent financial figures or claim to have inspected external platforms without an integration.
+
+Implement secure server-side AI communication.
+
+Use Grok as the primary provider, with a modular provider architecture.
+
+5. IMPROVE THE HOME DESK
+
+The home desk must be a genuinely useful operational overview.
+
+It should retrieve information from the actual workspaces.
+
+Include:
+
+- Today's sequence.
+- Late items.
+- Decisions requiring attention.
+- Active projects.
+- Business production activity.
+- Music release activity.
+- Financial observations.
+- Recent changes.
+
+Allow task completion directly from the desk.
+
+Preserve the existing seven primary destinations and quieter Library structure.
+
+Preserve the mobile bottom navigation.
+
+6. PRESERVE THE DESIGN IDENTITY
+
+The existing handcrafted visual direction is a requirement.
+
+Do not reintroduce:
+
+- Generic AI dashboard layouts.
+- Repeated identical workspace templates.
+- Purple gradients.
+- Unnecessary glassmorphism.
+- Glowing borders.
+- Decorative animations.
+- Random visual effects.
+- Unnecessary explanatory copy.
+
+Maintain the established paper-and-ink themes, restrained brass usage, contextual navigation, album sleeve design, job docket, and catalog spine mark.
+
+Continue refining each workspace according to its actual purpose.
+
+7. ENGINEERING REQUIREMENTS
+
+Preserve the existing technology stack unless an actual technical reason justifies a change.
+
+Prioritize:
+
+- Strict TypeScript.
+- Reusable domain-specific components.
+- Secure Supabase RLS.
+- Database migrations.
+- Input validation.
+- Correct data relationships.
+- Real CRUD functionality.
+- Reliable state management.
+- Error handling.
+- Mobile responsiveness.
+- Accessibility.
+- Performance.
+
+Do not expose API keys.
+
+Do not introduce unnecessary paid dependencies.
+
+Do not fabricate successful integrations.
+
+8. IMPLEMENTATION RULES
+
+Work in small, verifiable development stages.
+
+For each workspace:
+
+1. Audit the existing implementation.
+2. Identify missing functionality.
+3. Define the data model.
+4. Implement the database operations.
+5. Implement the actual interactions.
+6. Connect the UI to real records.
+7. Test all operations.
+8. Verify mobile behavior.
+9. Document what is complete and what remains.
+
+Do not start all workspaces simultaneously.
+
+Prioritize the Home Desk, Classic Brand, Cam Leinad, and Development Lab before expanding secondary modules.
+
+At the end of each stage, provide:
+
+- Files changed.
+- Database changes.
+- Features implemented.
+- Tests performed.
+- Outstanding issues.
+- Next implementation stage.
+
+Do not mark a feature complete without testing it.
+
+FINAL OBJECTIVE
+
+CamOS must evolve from a carefully designed interface into a functioning personal operating environment.
+
+The objective is not to create more screens.
+
+The objective is to make the existing screens useful, interconnected, reliable, and intelligent.
+
+Preserve the design quality.
+
+Increase operational depth.
+
+Build real software.
