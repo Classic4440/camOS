@@ -59,6 +59,8 @@ type Store = DeskData & {
   removeSession: (id: string) => void;
   addRoyalty: (row: Omit<Royalty, "id">) => void;
   removeRoyalty: (id: string) => void;
+  postRoyalty: (id: string) => boolean;
+  replaceDesk: (data: DeskData) => void;
   addCustomer: (customer: Omit<Customer, "id">) => string;
   updateCustomer: (id: string, patch: Partial<Customer>) => void;
   removeCustomer: (id: string) => void;
@@ -247,8 +249,32 @@ export const useDesk = create<Store>()(
         })),
       addSession: (session) => set((state) => ({ sessions: [{ ...session, id: uid() }, ...state.sessions] })),
       removeSession: (id) => set((state) => ({ sessions: state.sessions.filter((item) => item.id !== id) })),
-      addRoyalty: (row) => set((state) => ({ royalties: [{ ...row, id: uid() }, ...state.royalties] })),
+      addRoyalty: (row) => set((state) => ({ royalties: [{ ...row, id: uid(), ledgerId: null }, ...state.royalties] })),
       removeRoyalty: (id) => set((state) => ({ royalties: state.royalties.filter((item) => item.id !== id) })),
+      postRoyalty: (id) => {
+        const row = get().royalties.find((item) => item.id === id);
+        if (!row || row.ledgerId) return false;
+        const txnId = uid();
+        set((state) => ({
+          txns: [
+            {
+              id: txnId,
+              date: kampalaToday(),
+              house: "music",
+              kind: "in",
+              category: "Royalty",
+              amount: row.amount,
+              currency: row.currency,
+              note: `${row.source} ${row.period}`.trim(),
+              certainty: row.certainty,
+            },
+            ...state.txns,
+          ],
+          royalties: state.royalties.map((item) => (item.id === id ? { ...item, ledgerId: txnId } : item)),
+        }));
+        return true;
+      },
+      replaceDesk: (data) => set({ ...data, composer: null, focusId: null }),
       addCustomer: (customer) => {
         const id = uid();
         set((state) => ({ customers: [{ ...customer, id }, ...state.customers] }));

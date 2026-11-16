@@ -1,7 +1,8 @@
-import { cashPosition, isLate, netsByMonth, sampleCount } from "@/lib/camos/calc";
+import { cashPosition, isLate, netsByMonth, owed, sampleCount } from "@/lib/camos/calc";
 import { formatMoney, kampalaToday } from "@/lib/camos/format";
 import { useDesk } from "@/lib/camos/store";
 import { ORDER_STAGE_LABEL, RELEASE_STAGE_LABEL } from "@/lib/camos/types";
+import { Link } from "@tanstack/react-router";
 import { LedgerChart } from "@/components/camos/chart";
 import { Page, PageHead, Stamp } from "@/components/camos/ui";
 
@@ -24,6 +25,23 @@ export function AnalyticsView() {
   const openBugs = bugs.filter((bug) => bug.open);
   const ugx = netsByMonth(txns, "UGX").filter((row) => row.month === month);
   const samples = sampleCount({ orders, quotes, customers });
+  const review: { id: string; text: string; href: "/" | "/personal" | "/music" | "/brand" | "/finance" }[] = [];
+  for (const task of late) review.push({ id: task.id, text: task.title, href: "/personal" });
+  for (const order of orders) {
+    if (order.sample || order.stage === "delivered" || owed(order) <= 0) continue;
+    review.push({ id: order.id, text: `${order.number} still owes ${formatMoney(owed(order), "UGX")}`, href: "/brand" });
+  }
+  for (const release of releases) {
+    const gaps = [
+      release.tracks.length === 0 ? "tracklist" : null,
+      release.artwork ? null : "artwork",
+      release.metadataReady ? null : "metadata",
+      release.masters ? null : "masters",
+    ].filter(Boolean);
+    if (release.stage !== "released" && gaps.length) {
+      review.push({ id: release.id, text: `${release.catalog} still needs ${gaps.join(", ")}`, href: "/music" });
+    }
+  }
 
   return (
     <Page>
@@ -32,6 +50,22 @@ export function AnalyticsView() {
         title="What the records actually say."
         lede="Counted from the records on this desk. Sample shop jobs are left out of the live totals."
       />
+      <section className="mb-10">
+        <h2 className="font-display text-2xl">Across the houses</h2>
+        {review.length === 0 ? (
+          <p className="mt-2 text-sm text-muted">Nothing late, nothing unpaid on a live job, and no open release is missing a gate.</p>
+        ) : (
+          <ul className="mt-3 divide-y divide-line border-y border-line">
+            {review.slice(0, 8).map((row) => (
+              <li key={row.id}>
+                <Link to={row.href} className="flex min-h-12 items-center py-2 text-sm">
+                  {row.text}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
       <div className="grid gap-8 md:grid-cols-2">
         <figure className="border-t border-ink pt-3">
           <figcaption className="text-xs font-semibold uppercase tracking-widest text-faint">Past-date tasks</figcaption>

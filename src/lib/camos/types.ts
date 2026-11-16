@@ -86,6 +86,10 @@ export interface Release {
   lyrics: string;
   notes: string;
   tracks: Track[];
+  /** RouteNote-style gates. Missing means not done, including on older desk files. */
+  artwork?: boolean;
+  metadataReady?: boolean;
+  masters?: boolean;
 }
 
 export interface SessionLog {
@@ -103,6 +107,8 @@ export interface Royalty {
   amount: number;
   currency: Currency;
   certainty: Certainty;
+  /** Set once the row has been copied into the finance ledger. */
+  ledgerId?: string | null;
 }
 
 export interface Customer {

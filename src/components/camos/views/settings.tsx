@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { HOME_LABEL, type HomeBlock } from "@/lib/camos/types";
 import { useDesk } from "@/lib/camos/store";
+import { parseDeskFile, serializeDesk } from "@/lib/camos/backup";
 import { kampalaToday } from "@/lib/camos/format";
 import { Button, Field, Input, Page, PageHead, Textarea } from "@/components/camos/ui";
 import { cn } from "@/lib/utils";
@@ -13,9 +14,12 @@ export function SettingsView() {
   const toggleHomeBlock = useDesk((state) => state.toggleHomeBlock);
   const clearSamples = useDesk((state) => state.clearSamples);
   const resetDesk = useDesk((state) => state.resetDesk);
+  const replaceDesk = useDesk((state) => state.replaceDesk);
   const flashMsg = useDesk((state) => state.flashMsg);
   const [phrase, setPhrase] = useState("");
   const [confirmSamples, setConfirmSamples] = useState(false);
+  const [fileError, setFileError] = useState("");
+  const [pendingFile, setPendingFile] = useState<string | null>(null);
   const used = settings.aiDay === kampalaToday() ? settings.aiUsed : 0;
 
   return (
@@ -88,6 +92,76 @@ export function SettingsView() {
         <p className="mt-2 text-sm text-muted">
           {used} of {settings.aiLimit} briefs used today. The cap is there so a stuck button cannot spend the account.
         </p>
+      </section>
+      <section className="mt-10 border-t border-line pt-4">
+        <h2 className="font-display text-2xl">Desk file</h2>
+        <p className="mt-2 text-sm text-muted">
+          The records live in this browser. Download a file before you clear the device. Importing replaces what is here.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button
+            onClick={() => {
+              const file = serializeDesk(useDesk.getState());
+              const url = URL.createObjectURL(new Blob([file], { type: "application/json" }));
+              const link = document.createElement("a");
+              link.href = url;
+              link.download = `camos-desk-${kampalaToday()}.json`;
+              link.click();
+              URL.revokeObjectURL(url);
+              flashMsg("Desk file downloaded.");
+            }}
+          >
+            Download desk
+          </Button>
+        </div>
+        <Field label="Import a desk file" error={fileError} hint="Choose the file, then confirm. This replaces the current records.">
+          <Input
+            className="mt-1"
+            type="file"
+            accept="application/json,.json"
+            aria-label="Import a desk file"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (!file) return;
+              const reader = new FileReader();
+              reader.onload = () => {
+                const text = typeof reader.result === "string" ? reader.result : "";
+                const parsed = parseDeskFile(text);
+                if (!parsed.ok) {
+                  setPendingFile(null);
+                  setFileError(parsed.error);
+                  return;
+                }
+                setFileError("");
+                setPendingFile(text);
+              };
+              reader.readAsText(file);
+            }}
+          />
+        </Field>
+        {pendingFile ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button
+              variant="danger"
+              onClick={() => {
+                const parsed = parseDeskFile(pendingFile);
+                if (!parsed.ok) {
+                  setFileError(parsed.error);
+                  return;
+                }
+                replaceDesk(parsed.desk);
+                setPendingFile(null);
+                flashMsg("Desk file loaded.");
+              }}
+            >
+              Replace this desk
+            </Button>
+            <Button variant="ghost" onClick={() => setPendingFile(null)}>
+              Cancel
+            </Button>
+          </div>
+        ) : null}
       </section>
       <section className="mt-10 border-t border-line pt-4">
         <h2 className="font-display text-2xl">Sample records</h2>

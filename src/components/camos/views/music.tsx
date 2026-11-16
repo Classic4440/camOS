@@ -202,6 +202,15 @@ function Sleeve({
   );
 }
 
+function Check({ label, checked, onChange }: { label: string; checked: boolean; onChange: (next: boolean) => void }) {
+  return (
+    <label className="flex min-h-11 items-center gap-2 text-sm">
+      <input className="tick" type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
+      {label}
+    </label>
+  );
+}
+
 function Liner({
   releaseId,
   onDirty,
@@ -250,6 +259,26 @@ function Liner({
             ))}
           </Select>
         </Field>
+        <fieldset>
+          <legend className="text-sm font-semibold">Before distribution</legend>
+          <div className="mt-2 space-y-1">
+            <Check
+              label="Artwork is final"
+              checked={release.artwork === true}
+              onChange={(artwork) => updateRelease(release.id, { artwork })}
+            />
+            <Check
+              label="Metadata is filled"
+              checked={release.metadataReady === true}
+              onChange={(metadataReady) => updateRelease(release.id, { metadataReady })}
+            />
+            <Check
+              label="Masters are exported"
+              checked={release.masters === true}
+              onChange={(masters) => updateRelease(release.id, { masters })}
+            />
+          </div>
+        </fieldset>
         <Field label="Notes">
           <Textarea value={release.notes} onChange={(event) => updateRelease(release.id, { notes: event.target.value })} />
         </Field>
@@ -395,7 +424,9 @@ function Sessions() {
 function Royalties() {
   const royalties = useDesk((state) => state.royalties);
   const addRoyalty = useDesk((state) => state.addRoyalty);
+  const postRoyalty = useDesk((state) => state.postRoyalty);
   const removeRoyalty = useDesk((state) => state.removeRoyalty);
+  const flashMsg = useDesk((state) => state.flashMsg);
   const totals = royaltyTotals(royalties);
   const [period, setPeriod] = useState("");
   const [source, setSource] = useState("RouteNote");
@@ -408,7 +439,7 @@ function Royalties() {
     <section id="royalties" className="mt-12 scroll-mt-4">
       <h2 className="font-display text-2xl">Royalties</h2>
       <p className="mt-1 max-w-2xl text-sm text-muted">
-        Received and estimated stay apart. These figures are not copied into the finance ledger until you enter them there yourself.
+        Received and estimated stay apart. Post a row when you want it on the music book. It is never added to the shop book by itself.
       </p>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <p className="border-t border-ink pt-2 text-sm">
@@ -465,9 +496,23 @@ function Royalties() {
               <span>
                 {row.period} · {row.source} · {formatMoney(row.amount, row.currency)} · {row.certainty === "actual" ? "Received" : "Estimated"}
               </span>
-              <Button variant="ghost" onClick={() => removeRoyalty(row.id)}>
-                Remove
-              </Button>
+              <span className="flex shrink-0 gap-1">
+                {row.ledgerId ? (
+                  <span className="self-center text-xs font-semibold uppercase tracking-widest text-faint">On the ledger</span>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      if (postRoyalty(row.id)) flashMsg("Royalty posted to the music book. It is not blended into the shop book.");
+                    }}
+                  >
+                    Post to ledger
+                  </Button>
+                )}
+                <Button variant="ghost" onClick={() => removeRoyalty(row.id)}>
+                  Remove
+                </Button>
+              </span>
             </li>
           ))}
         </ul>
