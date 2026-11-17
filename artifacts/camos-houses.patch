@@ -1,0 +1,444 @@
+diff --git a/src/components/camos/views/analytics.tsx b/src/components/camos/views/analytics.tsx
+index 792e9c4..02ee00f 100644
+--- a/src/components/camos/views/analytics.tsx
++++ b/src/components/camos/views/analytics.tsx
+@@ -1,7 +1,8 @@
+-import { cashPosition, isLate, netsByMonth, sampleCount } from "@/lib/camos/calc";
++import { cashPosition, isLate, netsByMonth, owed, sampleCount } from "@/lib/camos/calc";
+ import { formatMoney, kampalaToday } from "@/lib/camos/format";
+ import { useDesk } from "@/lib/camos/store";
+ import { ORDER_STAGE_LABEL, RELEASE_STAGE_LABEL } from "@/lib/camos/types";
++import { Link } from "@tanstack/react-router";
+ import { LedgerChart } from "@/components/camos/chart";
+ import { Page, PageHead, Stamp } from "@/components/camos/ui";
+ 
+@@ -24,6 +25,23 @@ export function AnalyticsView() {
+   const openBugs = bugs.filter((bug) => bug.open);
+   const ugx = netsByMonth(txns, "UGX").filter((row) => row.month === month);
+   const samples = sampleCount({ orders, quotes, customers });
++  const review: { id: string; text: string; href: "/" | "/personal" | "/music" | "/brand" | "/finance" }[] = [];
++  for (const task of late) review.push({ id: task.id, text: task.title, href: "/personal" });
++  for (const order of orders) {
++    if (order.sample || order.stage === "delivered" || owed(order) <= 0) continue;
++    review.push({ id: order.id, text: `${order.number} still owes ${formatMoney(owed(order), "UGX")}`, href: "/brand" });
++  }
++  for (const release of releases) {
++    const gaps = [
++      release.tracks.length === 0 ? "tracklist" : null,
++      release.artwork ? null : "artwork",
++      release.metadataReady ? null : "metadata",
++      release.masters ? null : "masters",
++    ].filter(Boolean);
++    if (release.stage !== "released" && gaps.length) {
++      review.push({ id: release.id, text: `${release.catalog} still needs ${gaps.join(", ")}`, href: "/music" });
++    }
++  }
+ 
+   return (
+     <Page>
+@@ -32,6 +50,22 @@ export function AnalyticsView() {
+         title="What the records actually say."
+         lede="Counted from the records on this desk. Sample shop jobs are left out of the live totals."
+       />
++      <section className="mb-10">
++        <h2 className="font-display text-2xl">Across the houses</h2>
++        {review.length === 0 ? (
++          <p className="mt-2 text-sm text-muted">Nothing late, nothing unpaid on a live job, and no open release is missing a gate.</p>
++        ) : (
++          <ul className="mt-3 divide-y divide-line border-y border-line">
++            {review.slice(0, 8).map((row) => (
++              <li key={row.id}>
++                <Link to={row.href} className="flex min-h-12 items-center py-2 text-sm">
++                  {row.text}
++                </Link>
++              </li>
++            ))}
++          </ul>
++        )}
++      </section>
+       <div className="grid gap-8 md:grid-cols-2">
+         <figure className="border-t border-ink pt-3">
+           <figcaption className="text-xs font-semibold uppercase tracking-widest text-faint">Past-date tasks</figcaption>
+diff --git a/src/components/camos/views/music.tsx b/src/components/camos/views/music.tsx
+index 71c0ac5..47f4e71 100644
+--- a/src/components/camos/views/music.tsx
++++ b/src/components/camos/views/music.tsx
+@@ -202,6 +202,15 @@ function Sleeve({
+   );
+ }
+ 
++function Check({ label, checked, onChange }: { label: string; checked: boolean; onChange: (next: boolean) => void }) {
++  return (
++    <label className="flex min-h-11 items-center gap-2 text-sm">
++      <input className="tick" type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
++      {label}
++    </label>
++  );
++}
++
+ function Liner({
+   releaseId,
+   onDirty,
+@@ -250,6 +259,26 @@ function Liner({
+             ))}
+           </Select>
+         </Field>
++        <fieldset>
++          <legend className="text-sm font-semibold">Before distribution</legend>
++          <div className="mt-2 space-y-1">
++            <Check
++              label="Artwork is final"
++              checked={release.artwork === true}
++              onChange={(artwork) => updateRelease(release.id, { artwork })}
++            />
++            <Check
++              label="Metadata is filled"
++              checked={release.metadataReady === true}
++              onChange={(metadataReady) => updateRelease(release.id, { metadataReady })}
++            />
++            <Check
++              label="Masters are exported"
++              checked={release.masters === true}
++              onChange={(masters) => updateRelease(release.id, { masters })}
++            />
++          </div>
++        </fieldset>
+         <Field label="Notes">
+           <Textarea value={release.notes} onChange={(event) => updateRelease(release.id, { notes: event.target.value })} />
+         </Field>
+@@ -395,7 +424,9 @@ function Sessions() {
+ function Royalties() {
+   const royalties = useDesk((state) => state.royalties);
+   const addRoyalty = useDesk((state) => state.addRoyalty);
++  const postRoyalty = useDesk((state) => state.postRoyalty);
+   const removeRoyalty = useDesk((state) => state.removeRoyalty);
++  const flashMsg = useDesk((state) => state.flashMsg);
+   const totals = royaltyTotals(royalties);
+   const [period, setPeriod] = useState("");
+   const [source, setSource] = useState("RouteNote");
+@@ -408,7 +439,7 @@ function Royalties() {
+     <section id="royalties" className="mt-12 scroll-mt-4">
+       <h2 className="font-display text-2xl">Royalties</h2>
+       <p className="mt-1 max-w-2xl text-sm text-muted">
+-        Received and estimated stay apart. These figures are not copied into the finance ledger until you enter them there yourself.
++        Received and estimated stay apart. Post a row when you want it on the music book. It is never added to the shop book by itself.
+       </p>
+       <div className="mt-4 grid gap-4 sm:grid-cols-2">
+         <p className="border-t border-ink pt-2 text-sm">
+@@ -465,9 +496,23 @@ function Royalties() {
+               <span>
+                 {row.period} · {row.source} · {formatMoney(row.amount, row.currency)} · {row.certainty === "actual" ? "Received" : "Estimated"}
+               </span>
+-              <Button variant="ghost" onClick={() => removeRoyalty(row.id)}>
+-                Remove
+-              </Button>
++              <span className="flex shrink-0 gap-1">
++                {row.ledgerId ? (
++                  <span className="self-center text-xs font-semibold uppercase tracking-widest text-faint">On the ledger</span>
++                ) : (
++                  <Button
++                    variant="ghost"
++                    onClick={() => {
++                      if (postRoyalty(row.id)) flashMsg("Royalty posted to the music book. It is not blended into the shop book.");
++                    }}
++                  >
++                    Post to ledger
++                  </Button>
++                )}
++                <Button variant="ghost" onClick={() => removeRoyalty(row.id)}>
++                  Remove
++                </Button>
++              </span>
+             </li>
+           ))}
+         </ul>
+diff --git a/src/components/camos/views/settings.tsx b/src/components/camos/views/settings.tsx
+index 5a6b481..fcd1d92 100644
+--- a/src/components/camos/views/settings.tsx
++++ b/src/components/camos/views/settings.tsx
+@@ -1,6 +1,7 @@
+ import { useState } from "react";
+ import { HOME_LABEL, type HomeBlock } from "@/lib/camos/types";
+ import { useDesk } from "@/lib/camos/store";
++import { parseDeskFile, serializeDesk } from "@/lib/camos/backup";
+ import { kampalaToday } from "@/lib/camos/format";
+ import { Button, Field, Input, Page, PageHead, Textarea } from "@/components/camos/ui";
+ import { cn } from "@/lib/utils";
+@@ -13,9 +14,12 @@ export function SettingsView() {
+   const toggleHomeBlock = useDesk((state) => state.toggleHomeBlock);
+   const clearSamples = useDesk((state) => state.clearSamples);
+   const resetDesk = useDesk((state) => state.resetDesk);
++  const replaceDesk = useDesk((state) => state.replaceDesk);
+   const flashMsg = useDesk((state) => state.flashMsg);
+   const [phrase, setPhrase] = useState("");
+   const [confirmSamples, setConfirmSamples] = useState(false);
++  const [fileError, setFileError] = useState("");
++  const [pendingFile, setPendingFile] = useState<string | null>(null);
+   const used = settings.aiDay === kampalaToday() ? settings.aiUsed : 0;
+ 
+   return (
+@@ -89,6 +93,76 @@ export function SettingsView() {
+           {used} of {settings.aiLimit} briefs used today. The cap is there so a stuck button cannot spend the account.
+         </p>
+       </section>
++      <section className="mt-10 border-t border-line pt-4">
++        <h2 className="font-display text-2xl">Desk file</h2>
++        <p className="mt-2 text-sm text-muted">
++          The records live in this browser. Download a file before you clear the device. Importing replaces what is here.
++        </p>
++        <div className="mt-3 flex flex-wrap gap-2">
++          <Button
++            onClick={() => {
++              const file = serializeDesk(useDesk.getState());
++              const url = URL.createObjectURL(new Blob([file], { type: "application/json" }));
++              const link = document.createElement("a");
++              link.href = url;
++              link.download = `camos-desk-${kampalaToday()}.json`;
++              link.click();
++              URL.revokeObjectURL(url);
++              flashMsg("Desk file downloaded.");
++            }}
++          >
++            Download desk
++          </Button>
++        </div>
++        <Field label="Import a desk file" error={fileError} hint="Choose the file, then confirm. This replaces the current records.">
++          <Input
++            className="mt-1"
++            type="file"
++            accept="application/json,.json"
++            aria-label="Import a desk file"
++            onChange={(event) => {
++              const file = event.target.files?.[0];
++              event.target.value = "";
++              if (!file) return;
++              const reader = new FileReader();
++              reader.onload = () => {
++                const text = typeof reader.result === "string" ? reader.result : "";
++                const parsed = parseDeskFile(text);
++                if (!parsed.ok) {
++                  setPendingFile(null);
++                  setFileError(parsed.error);
++                  return;
++                }
++                setFileError("");
++                setPendingFile(text);
++              };
++              reader.readAsText(file);
++            }}
++          />
++        </Field>
++        {pendingFile ? (
++          <div className="mt-3 flex flex-wrap gap-2">
++            <Button
++              variant="danger"
++              onClick={() => {
++                const parsed = parseDeskFile(pendingFile);
++                if (!parsed.ok) {
++                  setFileError(parsed.error);
++                  return;
++                }
++                replaceDesk(parsed.desk);
++                setPendingFile(null);
++                flashMsg("Desk file loaded.");
++              }}
++            >
++              Replace this desk
++            </Button>
++            <Button variant="ghost" onClick={() => setPendingFile(null)}>
++              Cancel
++            </Button>
++          </div>
++        ) : null}
++      </section>
+       <section className="mt-10 border-t border-line pt-4">
+         <h2 className="font-display text-2xl">Sample records</h2>
+         <p className="mt-2 text-sm text-muted">Sample jobs, the sample customer, and the sample quote are illustrations. Confirmed machines, the album, and the projects stay.</p>
+diff --git a/src/lib/camos/backup.test.ts b/src/lib/camos/backup.test.ts
+new file mode 100644
+index 0000000..d6e5f96
+--- /dev/null
++++ b/src/lib/camos/backup.test.ts
+@@ -0,0 +1,42 @@
++import assert from "node:assert/strict";
++import test from "node:test";
++import { parseDeskFile } from "./backup.ts";
++
++const arrays = [
++  "tasks",
++  "decisions",
++  "releases",
++  "sessions",
++  "royalties",
++  "customers",
++  "orders",
++  "inventory",
++  "quotes",
++  "projects",
++  "bugs",
++  "techDecisions",
++  "deploys",
++  "txns",
++  "trades",
++  "paths",
++  "exercises",
++  "notes",
++  "ideas",
++  "campaigns",
++  "memos",
++];
++
++test("a minimal desk file is accepted", () => {
++  const desk: Record<string, unknown> = { settings: { called: "Daniel", artist: "Cam Leinad" } };
++  for (const key of arrays) desk[key] = key === "releases" ? [{ catalog: "CAM-001" }] : [];
++  const parsed = parseDeskFile(JSON.stringify({ camos: 1, desk }));
++  assert.equal(parsed.ok, true);
++  if (!parsed.ok) return;
++  assert.equal(parsed.desk.settings.artist, "Cam Leinad");
++  assert.equal(parsed.desk.releases[0]?.catalog, "CAM-001");
++});
++
++test("a foreign file is refused", () => {
++  const parsed = parseDeskFile(JSON.stringify({ hello: "world" }));
++  assert.equal(parsed.ok, false);
++});
+diff --git a/src/lib/camos/backup.ts b/src/lib/camos/backup.ts
+new file mode 100644
+index 0000000..78bfbc3
+--- /dev/null
++++ b/src/lib/camos/backup.ts
+@@ -0,0 +1,63 @@
++import type { DeskData } from "./types";
++
++const ARRAYS = [
++  "tasks",
++  "decisions",
++  "releases",
++  "sessions",
++  "royalties",
++  "customers",
++  "orders",
++  "inventory",
++  "quotes",
++  "projects",
++  "bugs",
++  "techDecisions",
++  "deploys",
++  "txns",
++  "trades",
++  "paths",
++  "exercises",
++  "notes",
++  "ideas",
++  "campaigns",
++  "memos",
++] as const satisfies readonly (keyof DeskData)[];
++
++export function deskSnapshot(data: DeskData): DeskData {
++  const desk = { settings: data.settings } as DeskData;
++  for (const key of ARRAYS) {
++    assign(desk, data, key);
++  }
++  return desk;
++}
++
++function assign<K extends (typeof ARRAYS)[number]>(desk: DeskData, data: DeskData, key: K) {
++  desk[key] = data[key];
++}
++
++export function serializeDesk(data: DeskData): string {
++  return JSON.stringify({ camos: 1, desk: deskSnapshot(data) }, null, 2);
++}
++
++export function parseDeskFile(text: string): { ok: true; desk: DeskData } | { ok: false; error: string } {
++  let parsed: unknown;
++  try {
++    parsed = JSON.parse(text);
++  } catch {
++    return { ok: false, error: "That file is not JSON." };
++  }
++  if (!parsed || typeof parsed !== "object") return { ok: false, error: "That file is not a CamOS desk." };
++  const body = parsed as { camos?: unknown; desk?: unknown };
++  if (body.camos !== 1 || !body.desk || typeof body.desk !== "object") {
++    return { ok: false, error: "This is not a CamOS desk file." };
++  }
++  const desk = body.desk as Partial<DeskData>;
++  if (!desk.settings || typeof desk.settings !== "object" || typeof desk.settings.called !== "string") {
++    return { ok: false, error: "The desk file has no name for you." };
++  }
++  for (const key of ARRAYS) {
++    if (!Array.isArray(desk[key])) return { ok: false, error: `The desk file is missing ${key}.` };
++  }
++  return { ok: true, desk: desk as DeskData };
++}
+diff --git a/src/lib/camos/store.ts b/src/lib/camos/store.ts
+index a815436..3e5a1be 100644
+--- a/src/lib/camos/store.ts
++++ b/src/lib/camos/store.ts
+@@ -59,6 +59,8 @@ type Store = DeskData & {
+   removeSession: (id: string) => void;
+   addRoyalty: (row: Omit<Royalty, "id">) => void;
+   removeRoyalty: (id: string) => void;
++  postRoyalty: (id: string) => boolean;
++  replaceDesk: (data: DeskData) => void;
+   addCustomer: (customer: Omit<Customer, "id">) => string;
+   updateCustomer: (id: string, patch: Partial<Customer>) => void;
+   removeCustomer: (id: string) => void;
+@@ -247,8 +249,32 @@ export const useDesk = create<Store>()(
+         })),
+       addSession: (session) => set((state) => ({ sessions: [{ ...session, id: uid() }, ...state.sessions] })),
+       removeSession: (id) => set((state) => ({ sessions: state.sessions.filter((item) => item.id !== id) })),
+-      addRoyalty: (row) => set((state) => ({ royalties: [{ ...row, id: uid() }, ...state.royalties] })),
++      addRoyalty: (row) => set((state) => ({ royalties: [{ ...row, id: uid(), ledgerId: null }, ...state.royalties] })),
+       removeRoyalty: (id) => set((state) => ({ royalties: state.royalties.filter((item) => item.id !== id) })),
++      postRoyalty: (id) => {
++        const row = get().royalties.find((item) => item.id === id);
++        if (!row || row.ledgerId) return false;
++        const txnId = uid();
++        set((state) => ({
++          txns: [
++            {
++              id: txnId,
++              date: kampalaToday(),
++              house: "music",
++              kind: "in",
++              category: "Royalty",
++              amount: row.amount,
++              currency: row.currency,
++              note: `${row.source} ${row.period}`.trim(),
++              certainty: row.certainty,
++            },
++            ...state.txns,
++          ],
++          royalties: state.royalties.map((item) => (item.id === id ? { ...item, ledgerId: txnId } : item)),
++        }));
++        return true;
++      },
++      replaceDesk: (data) => set({ ...data, composer: null, focusId: null }),
+       addCustomer: (customer) => {
+         const id = uid();
+         set((state) => ({ customers: [{ ...customer, id }, ...state.customers] }));
+diff --git a/src/lib/camos/types.ts b/src/lib/camos/types.ts
+index a94b9ae..fa6993e 100644
+--- a/src/lib/camos/types.ts
++++ b/src/lib/camos/types.ts
+@@ -86,6 +86,10 @@ export interface Release {
+   lyrics: string;
+   notes: string;
+   tracks: Track[];
++  /** RouteNote-style gates. Missing means not done, including on older desk files. */
++  artwork?: boolean;
++  metadataReady?: boolean;
++  masters?: boolean;
+ }
+ 
+ export interface SessionLog {
+@@ -103,6 +107,8 @@ export interface Royalty {
+   amount: number;
+   currency: Currency;
+   certainty: Certainty;
++  /** Set once the row has been copied into the finance ledger. */
++  ledgerId?: string | null;
+ }
+ 
+ export interface Customer {
