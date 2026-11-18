@@ -5,6 +5,7 @@ import { Menu, Moon, Search, Sun, X } from "lucide-react";
 import { formatLongToday } from "@/lib/camos/format";
 import { searchDesk, type SearchHit } from "@/lib/camos/calc";
 import { useDesk } from "@/lib/camos/store";
+import { startDeskSync } from "@/lib/camos/sync";
 import { cn } from "@/lib/utils";
 import { Button, Input } from "@/components/camos/ui";
 
@@ -74,6 +75,7 @@ export function Shell({ children }: { children: ReactNode }) {
     if (useDesk.persist.hasHydrated()) apply();
     const unsub = useDesk.persist.onFinishHydration(apply);
     void useDesk.persist.rehydrate();
+    startDeskSync();
     return unsub;
   }, []);
 

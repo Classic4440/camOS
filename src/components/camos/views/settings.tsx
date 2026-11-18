@@ -2,6 +2,8 @@ import { useState } from "react";
 import { HOME_LABEL, type HomeBlock } from "@/lib/camos/types";
 import { useDesk } from "@/lib/camos/store";
 import { parseDeskFile, serializeDesk } from "@/lib/camos/backup";
+import { DESK_SQL } from "@/lib/camos/remote";
+import { downloadCloud, uploadThisBrowser, useDeskSync, type SyncState } from "@/lib/camos/sync";
 import { kampalaToday } from "@/lib/camos/format";
 import { Button, Field, Input, Page, PageHead, Textarea } from "@/components/camos/ui";
 import { cn } from "@/lib/utils";
@@ -20,6 +22,7 @@ export function SettingsView() {
   const [confirmSamples, setConfirmSamples] = useState(false);
   const [fileError, setFileError] = useState("");
   const [pendingFile, setPendingFile] = useState<string | null>(null);
+  const sync = useDeskSync();
   const used = settings.aiDay === kampalaToday() ? settings.aiUsed : 0;
 
   return (
@@ -27,8 +30,38 @@ export function SettingsView() {
       <PageHead
         kicker="Office · Settings"
         title="The desk, named properly."
-        lede="CamOS is the operating desk. DanielMac is the professional name. Cam Leinad is the artist. Records stay on this device until you clear them."
+        lede="CamOS is the operating desk. DanielMac is the professional name. Cam Leinad is the artist. Records stay in this browser and are copied to Supabase."
       />
+      <section className="mb-10 border-t border-line pt-4">
+        <h2 className="font-display text-2xl">Supabase</h2>
+        <p className="mt-2 text-sm text-muted">Project qeebfpsqdwrjsgoclock. {syncLine(sync)}</p>
+        {sync.state === "needs-setup" ? (
+          <>
+            <p className="mt-3 text-sm">
+              The project answered, but it has no desk table. Open the Supabase SQL editor, run this once, then come back. Saving starts on its own.
+            </p>
+            <pre className="mt-3 max-h-64 overflow-auto border border-line bg-surface p-3 text-xs leading-relaxed">{DESK_SQL}</pre>
+            <Button
+              className="mt-3"
+              onClick={() => {
+                void navigator.clipboard.writeText(DESK_SQL);
+                flashMsg("SQL copied.");
+              }}
+            >
+              Copy SQL
+            </Button>
+          </>
+        ) : null}
+        {sync.state === "choose" ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button onClick={() => void uploadThisBrowser()}>Upload this browser</Button>
+            <Button variant="ghost" onClick={() => void downloadCloud()}>
+              Download the cloud desk
+            </Button>
+          </div>
+        ) : null}
+        {sync.state === "offline" ? <p className="mt-3 text-sm text-rust">{sync.error} This browser still has the records.</p> : null}
+      </section>
       <section className="space-y-4 border-t border-line pt-4">
         <Field label="What the desk calls you">
           <Input value={settings.called} onChange={(event) => patchSettings({ called: event.target.value })} />
@@ -206,4 +239,21 @@ export function SettingsView() {
       </section>
     </Page>
   );
+}
+
+function syncLine(sync: SyncState): string {
+  switch (sync.state) {
+    case "checking":
+      return "Checking the project.";
+    case "saving":
+      return "Saving.";
+    case "saved":
+      return `Last copy ${sync.at.slice(0, 16).replace("T", " ")} UTC.`;
+    case "needs-setup":
+      return "Waiting for the table.";
+    case "choose":
+      return "A desk is already stored. Choose which copy to keep.";
+    case "offline":
+      return "Not saved just now.";
+  }
 }
