@@ -5,7 +5,9 @@ import { Menu, Moon, Search, Sun, X } from "lucide-react";
 import { formatLongToday } from "@/lib/camos/format";
 import { searchDesk, type SearchHit } from "@/lib/camos/calc";
 import { useDesk } from "@/lib/camos/store";
+import { ensureOwner, useOwnerSession } from "@/lib/camos/owner-session";
 import { startDeskSync } from "@/lib/camos/sync";
+import { OwnerLock } from "@/components/camos/owner-lock";
 import { cn } from "@/lib/utils";
 import { Button, Input } from "@/components/camos/ui";
 
@@ -57,6 +59,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const theme = useDesk((state) => state.settings.theme);
   const setTheme = useDesk((state) => state.setTheme);
   const flash = useDesk((state) => state.flash);
+  const owner = useOwnerSession();
   const [menu, setMenu] = useState(false);
   const [palette, setPalette] = useState(false);
   const [help, setHelp] = useState(false);
@@ -75,12 +78,12 @@ export function Shell({ children }: { children: ReactNode }) {
     if (useDesk.persist.hasHydrated()) apply();
     const unsub = useDesk.persist.onFinishHydration(apply);
     void useDesk.persist.rehydrate();
-    startDeskSync();
     return unsub;
   }, []);
 
   useEffect(() => {
-    let armed = false;
+    if (owner.status === "in") startDeskSync();
+  }, [owner.status]);
     let timer = 0;
     function onKey(event: KeyboardEvent) {
       const meta = event.metaKey || event.ctrlKey;
@@ -122,6 +125,14 @@ export function Shell({ children }: { children: ReactNode }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [navigate]);
+
+  if (owner.status !== "in") {
+    return owner.status === "loading" ? (
+      <div className="grid h-dvh place-items-center bg-paper text-sm text-muted">Checking the lock.</div>
+    ) : (
+      <OwnerLock />
+    );
+  }
 
   return (
     <div className="flex h-dvh flex-col bg-paper text-ink">

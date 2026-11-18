@@ -1,351 +1,347 @@
-CamOS — NEXT DEVELOPMENT PHASE
+CamOS — SECURITY, OWNERSHIP & OPERATIONAL MATURITY UPGRADE
 
-Workspace Intelligence, Operational Depth & Functional Engineering
+You are continuing development of the existing CamOS application.
 
-The current CamOS interface has undergone a significant design refinement.
+Live deployment:
+https://camos.uwon.workers.dev
 
-The product identity is CamOS.
+GitHub:
+https://github.com/Classic4440/camOS
 
-DanielMac remains the professional identity of the owner.
-Cam Leinad remains the artist identity.
-CAM remains the independent music label.
-Classic Brand remains the clothing customization business.
+Supabase project:
+qeebfpsqdwrjsgoclock
 
-The latest interface improvements are established design decisions. Preserve them.
+The application already has an established handcrafted design identity and several functioning workspaces.
 
-Your next assignment is NOT another visual redesign.
+DO NOT redesign the application from scratch.
 
-Your assignment is to transform the existing CamOS interface into a fully functional, interconnected, operational personal operating system.
+DO NOT replace the current visual identity.
 
-1. FIRST: AUDIT THE EXISTING IMPLEMENTATION
+Your objective is to transform CamOS into a secure, authenticated, fully operational personal operating system.
 
-Inspect the actual application, source code, routes, components, database, existing state management, and current functionality.
+PRIORITY 1 — SECURE THE APPLICATION
 
-Do not assume that features work simply because they appear in the interface.
+The current desk implementation has an anonymous-access security problem.
+
+The existing desk policies allow anonymous users to read, insert, and update records.
+
+Treat this as a critical vulnerability.
+
+Audit the entire database.
 
 Identify:
 
-- Existing functional modules.
-- Incomplete modules.
-- Mock data.
-- Nonfunctional buttons.
-- Duplicate components.
-- Repeated page structures.
-- Inconsistent workspace behavior.
-- Missing database operations.
-- Broken navigation.
-- Missing relationships between records.
-- Unimplemented mobile interactions.
-- Security and data integrity problems.
+- All existing tables.
+- Their current RLS status.
+- Anonymous policies.
+- Authenticated policies.
+- Storage bucket permissions.
+- Database functions.
+- Exposed views.
+- Public API access.
 
-Produce an implementation audit.
+Do not assume the desk is the only exposed resource.
 
-Do not replace functioning components unnecessarily.
+Create a secure authentication architecture using Supabase Auth.
 
-Do not destroy existing work to rebuild it from scratch.
+Account requirements
 
-2. ENFORCE WORKSPACE-SPECIFIC FUNCTIONALITY
+This is initially a single-owner private application.
 
-Every workspace must have its own operational model.
-
-CAM LEINAD — LABEL OFFICE
+The owner is DanielMac.
 
 Implement:
 
-- Artist catalog.
-- Release records.
-- Album and EP management.
-- Track metadata.
-- Sessions.
-- Recording progress.
-- Production notes.
-- Distribution status.
-- Royalty records.
-- Release scheduling.
-- Catalog search.
-- Artwork management.
+- Email/password sign-in.
+- Email verification.
+- Password recovery.
+- Session persistence.
+- Secure logout.
+- Optional MFA.
+- Account profile.
+- Session management.
+- Security event history.
 
-The catalog should support individual release detail views.
+Do not expose public registration after the initial owner account is provisioned.
 
-Every release should have its own tracklist, metadata, artwork, release status, and associated financial records.
+Do not hardcode account credentials.
 
-Maintain the established album sleeve and catalog spine design.
+Do not put passwords, service-role keys, or Grok API keys in frontend source code.
 
-Do not turn the label office back into a generic numbered dashboard.
+Database ownership
 
-CLASSIC BRAND — JOB DOCKET
+Introduce ownership relationships for private data.
+
+Every private record must belong to an authenticated owner.
+
+Use auth.uid() in RLS policies.
+
+Remove the old unrestricted anonymous policies rather than merely adding restrictive policies alongside them.
+
+Implement ownership checks for:
+
+- Desk records.
+- Tasks.
+- Music records.
+- Classic Brand records.
+- Financial records.
+- Projects.
+- Learning records.
+- Decisions.
+- Documents.
+- Other private resources.
+
+Create private storage policies for uploaded files.
+
+Never rely on hiding navigation or displaying a login screen as a substitute for database security.
+
+Migration safety
+
+Before modifying the database:
+
+1. Inspect the existing schema.
+2. Back up existing records.
+3. Design migration scripts.
+4. Preserve existing information.
+5. Test ownership policies.
+6. Verify anonymous access is rejected.
+7. Verify authenticated owner access works.
+
+Do not delete user records during security migration.
+
+PRIORITY 2 — CLOUD SYNCHRONIZATION
+
+The current application supports browser-local records and Supabase synchronization.
+
+Make this reliable.
 
 Implement:
 
-- Customer records.
-- Customer order history.
-- Job creation.
-- Quotations.
+- Cloud sync status.
+- Last successful sync.
+- Pending local changes.
+- Network failure detection.
+- Retry handling.
+- Conflict detection.
+- Explicit conflict resolution.
+- Device identification.
+- Data export.
+- Data restoration.
+
+Never silently overwrite newer cloud data with older browser data.
+
+Support multiple authenticated devices.
+
+A change made on the phone should become available on the workstation after synchronization.
+
+Use appropriate database transactions and timestamps.
+
+PRIORITY 3 — FIX EXISTING DATA AND FUNCTIONALITY
+
+Inspect the live application and investigate the existing date problem.
+
+Task and job records currently display dates in 1969 and 1970.
+
+Identify the underlying timestamp or parsing issue.
+
+Correct it without inventing replacement deadlines.
+
+Audit:
+
+- Task creation.
+- Task completion.
+- Due dates.
+- Attention categories.
+- Job dates.
+- Financial dates.
+- Release dates.
+- Session dates.
+
+Also inspect sample data.
+
+Sample Classic Brand jobs must remain explicitly marked as sample data and must never enter actual revenue or financial reports.
+
+PRIORITY 4 — WORKSPACE COMPLETENESS
+
+Preserve the established workspace-specific architecture.
+
+Music / Cam Leinad
+
+Upgrade the existing label office with:
+
+- Release readiness inspection.
+- Track-level production pipeline.
+- Track metadata validation.
+- Distribution history.
+- UPC and ISRC records.
+- Session management.
+- Royalty statements.
+- Music revenue reports.
+- Campaign planning.
+- Credits and publishing documentation.
+
+Classic Brand
+
+Upgrade the job docket with:
+
+- Customer CRM.
+- Garment specifications.
+- Quotation builder.
+- Production costing.
+- Materials inventory.
+- Machine records.
+- Quality control.
 - Payments.
 - Outstanding balances.
-- Production stages.
-- Garment specifications.
-- Design attachments.
-- Production costs.
-- Material inventory.
-- Quality control.
-- Completed jobs.
+- Profit per job.
+- Customer history.
 
-Each job must have a detailed job ticket.
+Development Lab
 
-Support the workflow:
+Upgrade with:
 
-Inquiry → Quotation → Approval → Payment → Design → Production → Quality Control → Collection → Completed.
-
-The job board must reflect actual database records.
-
-DEVELOPMENT LAB
-
-Implement:
-
-- Project registry.
-- Project details.
-- Repository information.
-- Technology stacks.
-- Deployment URLs.
-- Project status.
-- Technical documentation.
-- Bugs.
-- Feature requests.
-- Milestones.
-- Development logs.
+- GitHub integration.
+- Repository registry.
+- Commit history.
+- Deployment tracking.
+- Bug management.
+- Feature planning.
+- Technical documents.
 - Architecture records.
-- Deployment history.
+- Environment documentation.
+- Project health.
 
-Allow a project to have multiple technical documents, issues, and development milestones.
+Integrations must use actual authorized API access.
 
-FINANCIAL LEDGER
+Do not simulate connected accounts.
+
+Finance
 
 Implement:
 
-- Personal financial records.
-- Independent business books.
+- Transaction ledger.
+- Separate business books.
+- Personal finance.
 - Income.
 - Expenses.
 - Transfers.
 - Savings.
-- Liabilities.
-- Equipment investments.
-- Actual financial balances.
-- Projected financial balances.
+- Actual versus projected figures.
+- UGX and USD.
+- Exchange-rate records.
 - Monthly reporting.
+- Audit history.
 
-Support UGX and USD as currencies.
+Never mix currencies without explicit conversion.
 
-Never combine currencies without explicit exchange-rate conversion.
+Never include projections in actual balances.
 
-Never mix actual figures with projected figures.
-
-Every financial transaction must have a date, amount, currency, category, description, and relevant account or business.
-
-Provide auditable transaction histories.
-
-LEARNING AND KNOWLEDGE
+Learning and Knowledge
 
 Implement:
 
 - Learning paths.
-- Courses.
 - Study sessions.
+- Progress tracking.
+- Research library.
 - Notes.
+- Documents.
 - Resources.
 - Exercises.
-- Quizzes.
-- Learning progress.
-- Knowledge collections.
-- Research records.
 
-Progress must reflect actual completed activities.
-
-IDEA INCUBATOR
+Ideas
 
 Implement:
 
 - Idea capture.
-- Research.
 - Validation.
+- Research.
 - Feasibility.
-- Resource requirements.
-- Estimated costs.
-- Business models.
-- Development roadmaps.
-- Status transitions.
+- Cost estimates.
+- Execution roadmaps.
+- Conversion into projects.
 
-Allow ideas to become actual projects without duplicating their original information.
+PRIORITY 5 — AI COMMAND CENTER
 
-3. BUILD THE CROSS-WORKSPACE DATA MODEL
+Build a secure AI integration architecture.
 
-Design relationships between workspaces carefully.
+Grok should be the initial provider.
 
-Examples:
+The AI should be capable of querying authorized CamOS records through secure server-side tools.
 
-A music release can have:
+Support:
 
-- Production expenses.
-- Marketing expenses.
-- Distribution records.
-- Royalty records.
-- Associated tasks.
+- Executive analysis.
+- Music analysis.
+- Business analysis.
+- Technical analysis.
+- Financial analysis.
+- Learning support.
 
-A Classic Brand job can have:
+Provide usage controls, cost tracking, and permissions.
 
-- Customer.
-- Garment specifications.
-- Materials.
-- Production costs.
-- Payments.
-- Outstanding balances.
+Do not expose private database access to the model unnecessarily.
 
-A software project can have:
+Require confirmation before destructive or consequential operations.
 
-- Repository.
-- Deployment.
-- Technical documents.
-- Bugs.
-- Milestones.
-- Development expenses.
+The AI must distinguish actual records, estimates, projections, and assumptions.
 
-A financial transaction can reference the relevant business, project, or activity.
+PRIORITY 6 — DEVICE AND ACCOUNT MANAGEMENT
 
-Maintain independent records while allowing consolidated reporting.
+Create a security center with:
 
-Avoid circular dependencies and unnecessary database complexity.
+- Current session.
+- Other active sessions.
+- Device labels.
+- Last activity.
+- Session revocation.
+- Password changes.
+- MFA management.
+- Login activity.
+- Data export.
+- Account recovery information.
 
-4. BUILD THE AI COMMAND CENTER
+PRIORITY 7 — TESTING AND DELIVERY
 
-The AI must become capable of answering questions using authorized CamOS records.
+Test all security boundaries.
 
-Examples:
+Specifically verify:
 
-- Which Classic Brand orders are overdue?
-- What is the outstanding customer balance?
-- How much has Cam Leinad spent on production this month?
-- Which development projects have not progressed?
-- What are my actual monthly expenses?
-- Which projects have the strongest near-term opportunities?
-- What should I prioritize today?
+- Anonymous users cannot access private records.
+- Unauthenticated users cannot access private routes.
+- Authenticated users can access their own records.
+- Unauthorized owners cannot access another owner's records.
+- Storage policies enforce ownership.
+- Browser refresh preserves authenticated sessions.
+- Multiple devices synchronize correctly.
+- Conflicts do not destroy newer records.
+- Financial calculations remain accurate.
+- Task dates display correctly.
 
-The AI should distinguish actual records from assumptions.
+Maintain the current visual identity.
 
-It must never invent financial figures or claim to have inspected external platforms without an integration.
+Do not add decorative features to compensate for missing functionality.
 
-Implement secure server-side AI communication.
+DELIVERY PROCESS
 
-Use Grok as the primary provider, with a modular provider architecture.
+Work in separate stages.
 
-5. IMPROVE THE HOME DESK
+For every stage, report:
 
-The home desk must be a genuinely useful operational overview.
+- What was inspected.
+- What was changed.
+- Files modified.
+- SQL migrations created.
+- Security tests performed.
+- Functional tests performed.
+- Remaining problems.
 
-It should retrieve information from the actual workspaces.
+Never claim that a migration was executed unless it was actually executed.
 
-Include:
+Never claim that a deployment succeeded unless the deployment was verified.
 
-- Today's sequence.
-- Late items.
-- Decisions requiring attention.
-- Active projects.
-- Business production activity.
-- Music release activity.
-- Financial observations.
-- Recent changes.
+Never request the user's secrets in chat or commit them to GitHub.
 
-Allow task completion directly from the desk.
+The result must be a private, reliable, multi-device, single-owner CamOS environment.
 
-Preserve the existing seven primary destinations and quieter Library structure.
-
-Preserve the mobile bottom navigation.
-
-6. PRESERVE THE DESIGN IDENTITY
-
-The existing handcrafted visual direction is a requirement.
-
-Do not reintroduce:
-
-- Generic AI dashboard layouts.
-- Repeated identical workspace templates.
-- Purple gradients.
-- Unnecessary glassmorphism.
-- Glowing borders.
-- Decorative animations.
-- Random visual effects.
-- Unnecessary explanatory copy.
-
-Maintain the established paper-and-ink themes, restrained brass usage, contextual navigation, album sleeve design, job docket, and catalog spine mark.
-
-Continue refining each workspace according to its actual purpose.
-
-7. ENGINEERING REQUIREMENTS
-
-Preserve the existing technology stack unless an actual technical reason justifies a change.
-
-Prioritize:
-
-- Strict TypeScript.
-- Reusable domain-specific components.
-- Secure Supabase RLS.
-- Database migrations.
-- Input validation.
-- Correct data relationships.
-- Real CRUD functionality.
-- Reliable state management.
-- Error handling.
-- Mobile responsiveness.
-- Accessibility.
-- Performance.
-
-Do not expose API keys.
-
-Do not introduce unnecessary paid dependencies.
-
-Do not fabricate successful integrations.
-
-8. IMPLEMENTATION RULES
-
-Work in small, verifiable development stages.
-
-For each workspace:
-
-1. Audit the existing implementation.
-2. Identify missing functionality.
-3. Define the data model.
-4. Implement the database operations.
-5. Implement the actual interactions.
-6. Connect the UI to real records.
-7. Test all operations.
-8. Verify mobile behavior.
-9. Document what is complete and what remains.
-
-Do not start all workspaces simultaneously.
-
-Prioritize the Home Desk, Classic Brand, Cam Leinad, and Development Lab before expanding secondary modules.
-
-At the end of each stage, provide:
-
-- Files changed.
-- Database changes.
-- Features implemented.
-- Tests performed.
-- Outstanding issues.
-- Next implementation stage.
-
-Do not mark a feature complete without testing it.
-
-FINAL OBJECTIVE
-
-CamOS must evolve from a carefully designed interface into a functioning personal operating environment.
-
-The objective is not to create more screens.
-
-The objective is to make the existing screens useful, interconnected, reliable, and intelligent.
-
-Preserve the design quality.
-
-Increase operational depth.
-
-Build real software.
+Begin with the security audit and authentication architecture. Do not proceed to major feature expansion until the security foundation is verified.

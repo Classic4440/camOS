@@ -1,51 +1,72 @@
 import { parseDeskFile, deskSnapshot } from "./backup";
 import type { DeskData } from "./types";
 
-/** Publishable key. Safe in the client; Row Level Security is what actually limits the table. */
-const URL = "https://qeebfpsqdwrjsgoclock.supabase.co";
-const KEY = "sb_publishable_Nu8PnFSfMgtu61hhMToe0A_y72qNqrn";
+/** Publishable key. It identifies the project. It is never sent as the user credential. */
+export const SUPABASE_URL = "https://qeebfpsqdwrjsgoclock.supabase.co";
+export const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_Nu8PnFSfMgtu61hhMToe0A_y72qNqrn";
+
 const ROW = "primary";
 
-export const DESK_SQL = `create table if not exists public.desk (
-  id text primary key,
-  payload jsonb not null,
-  updated_at timestamptz not null default now()
-);
-
-alter table public.desk enable row level security;
-
-drop policy if exists "desk read" on public.desk;
-drop policy if exists "desk insert" on public.desk;
-drop policy if exists "desk update" on public.desk;
-
-create policy "desk read" on public.desk for select to anon, authenticated using (true);
-create policy "desk insert" on public.desk for insert to anon, authenticated with check (true);
-create policy "desk update" on public.desk for update to anon, authenticated using (true) with check (true);`;
-
-export type RemoteDesk =
-  | { ok: true; desk: DeskData | null; updatedAt: string | null }
-  | { ok: false; missing: boolean; error: string };
-
-function headers(extra?: Record<string, string>): HeadersInit {
+export function dataHeaders(accessToken: string, extra?: Record<string, string>): HeadersInit {
+  if (!accessToken || accessToken === SUPABASE_PUBLISHABLE_KEY || accessToken.startsWith("sb_publishable_")) {
+    throw new Error("Anonymous desk access is refused.");
+  }
   return {
-    apikey: KEY,
-    Authorization: `Bearer ${KEY}`,
+    apikey: SUPABASE_PUBLISHABLE_KEY,
+    Authorization: `Bearer ${accessToken}`,
     "Content-Type": "application/json",
     ...extra,
   };
 }
 
-export async function fetchRemoteDesk(): Promise<RemoteDesk> {
+export type RemoteDesk =
+  | { ok: true; desk: DeskData | null; updatedAt: string | null }
+  | { ok: false; missing: boolean; error: string };
+
+/** Live check used by the lock screen. Selects ids only, never the payload. */
+export async function anonymousDeskIsOpen(): Promise<boolean> {
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/desk?select=id&limit=1`, {
+      headers: { apikey: SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}` },
+    });
+    if (!response.ok) return false;
+    const rows = (await response.json()) as unknown;
+    return Array.isArray(rows) && rows.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+export async function claimOwner(accessToken: string): Promise<{ ok: true } | { ok: false; missing: boolean; error: string }> {
   let response: Response;
   try {
-    response = await fetch(`${URL}/rest/v1/desk?id=eq.${ROW}&select=payload,updated_at`, { headers: headers() });
+    response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/claim_owner`, {
+      method: "POST",
+      headers: dataHeaders(accessToken),
+      body: "{}",
+    });
   } catch {
     return { ok: false, missing: false, error: "Supabase did not answer." };
+  }
+  if (response.ok) return { ok: true };
+  const text = await response.text();
+  const missing = text.includes("PGRST202") || text.includes("PGRST205") || response.status === 404;
+  return { ok: false, missing, error: missing ? "The owner migration has not been run." : "The desk could not be claimed." };
+}
+
+export async function fetchRemoteDesk(accessToken: string): Promise<RemoteDesk> {
+  let response: Response;
+  try {
+    response = await fetch(`${SUPABASE_URL}/rest/v1/desk?id=eq.${ROW}&select=payload,updated_at`, {
+      headers: dataHeaders(accessToken),
+    });
+  } catch (error) {
+    return { ok: false, missing: false, error: error instanceof Error ? error.message : "Supabase did not answer." };
   }
   const text = await response.text();
   if (!response.ok) {
     const missing = text.includes("PGRST205");
-    return { ok: false, missing, error: missing ? "The desk table is not in this project yet." : "Supabase refused the read." };
+    return { ok: false, missing, error: missing ? "The desk table is missing." : "Supabase refused the read." };
   }
   let rows: { payload?: unknown; updated_at?: string }[];
   try {
@@ -60,22 +81,38 @@ export async function fetchRemoteDesk(): Promise<RemoteDesk> {
   return { ok: true, desk: parsed.desk, updatedAt: row.updated_at ?? null };
 }
 
-export async function saveRemoteDesk(data: DeskData): Promise<{ ok: true; updatedAt: string } | { ok: false; missing: boolean; error: string }> {
+export async function saveRemoteDesk(
+  accessToken: string,
+  ownerId: string,
+  data: DeskData,
+): Promise<{ ok: true; updatedAt: string } | { ok: false; missing: boolean; error: string }> {
   const updatedAt = new Date().toISOString();
   let response: Response;
   try {
-    response = await fetch(`${URL}/rest/v1/desk?on_conflict=id`, {
+    response = await fetch(`${SUPABASE_URL}/rest/v1/desk?on_conflict=id`, {
       method: "POST",
-      headers: headers({ Prefer: "resolution=merge-duplicates,return=representation" }),
-      body: JSON.stringify({ id: ROW, payload: deskSnapshot(data), updated_at: updatedAt }),
+      headers: dataHeaders(accessToken, { Prefer: "resolution=merge-duplicates,return=representation" }),
+      body: JSON.stringify({ id: ROW, owner_id: ownerId, payload: deskSnapshot(data), updated_at: updatedAt }),
     });
-  } catch {
-    return { ok: false, missing: false, error: "Supabase did not answer." };
+  } catch (error) {
+    return { ok: false, missing: false, error: error instanceof Error ? error.message : "Supabase did not answer." };
   }
   const text = await response.text();
   if (!response.ok) {
-    const missing = text.includes("PGRST205");
-    return { ok: false, missing, error: missing ? "The desk table is not in this project yet." : "Supabase refused the save." };
+    const missing = text.includes("PGRST205") || text.includes("owner_id");
+    return { ok: false, missing, error: missing ? "The owner migration has not been run." : "Supabase refused the save." };
   }
   return { ok: true, updatedAt };
+}
+
+export async function recordSecurityEvent(accessToken: string, ownerId: string, kind: string, detail: string): Promise<void> {
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/security_events`, {
+      method: "POST",
+      headers: dataHeaders(accessToken, { Prefer: "return=minimal" }),
+      body: JSON.stringify({ owner_id: ownerId, kind, detail }),
+    });
+  } catch {
+    // The event table exists only after the owner migration.
+  }
 }

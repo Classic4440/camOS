@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { deskSnapshot } from "./backup";
-import { fetchRemoteDesk, saveRemoteDesk } from "./remote";
+import { accessToken, currentOwner } from "./owner-session";
+import { claimOwner, fetchRemoteDesk, saveRemoteDesk } from "./remote";
 import { useDesk } from "./store";
 
 const STAMP = "camos-supabase-at";
@@ -11,6 +12,7 @@ export type SyncState =
   | { state: "saving" }
   | { state: "needs-setup" }
   | { state: "choose" }
+  | { state: "locked" }
   | { state: "offline"; at: string | null; error: string };
 
 let snapshot: SyncState = { state: "checking" };
@@ -38,7 +40,10 @@ function setStamp(value: string) {
 }
 
 export function startDeskSync(): void {
-  if (started || typeof window === "undefined") return;
+  if (started || typeof window === "undefined") {
+    if (started) void reconcile();
+    return;
+  }
   started = true;
   const boot = () => {
     void reconcile();
@@ -48,7 +53,7 @@ export function startDeskSync(): void {
 
   useDesk.subscribe(() => {
     if (applying) return;
-    if (snapshot.state === "needs-setup" || snapshot.state === "checking" || snapshot.state === "choose") return;
+    if (snapshot.state === "needs-setup" || snapshot.state === "checking" || snapshot.state === "choose" || snapshot.state === "locked") return;
     const json = JSON.stringify(deskSnapshot(useDesk.getState()));
     if (json === lastSent) return;
     emit({ state: "saving" });
@@ -60,7 +65,18 @@ export function startDeskSync(): void {
 }
 
 async function reconcile() {
-  const remote = await fetchRemoteDesk();
+  const token = await accessToken();
+  const owner = currentOwner();
+  if (!token || !owner) {
+    emit({ state: "locked" });
+    return;
+  }
+  const claim = await claimOwner(token);
+  if (!claim.ok) {
+    emit(claim.missing ? { state: "needs-setup" } : { state: "offline", at: stamp(), error: claim.error });
+    return;
+  }
+  const remote = await fetchRemoteDesk(token);
   if (!remote.ok) {
     emit(remote.missing ? { state: "needs-setup" } : { state: "offline", at: stamp(), error: remote.error });
     return;
@@ -91,7 +107,13 @@ function applyRemote(desk: ReturnType<typeof deskSnapshot>, at: string) {
 }
 
 async function pushCurrent() {
-  const result = await saveRemoteDesk(useDesk.getState());
+  const token = await accessToken();
+  const owner = currentOwner();
+  if (!token || !owner) {
+    emit({ state: "locked" });
+    return;
+  }
+  const result = await saveRemoteDesk(token, owner.id, useDesk.getState());
   if (!result.ok) {
     emit(result.missing ? { state: "needs-setup" } : { state: "offline", at: stamp(), error: result.error });
     return;
@@ -108,7 +130,12 @@ export async function uploadThisBrowser(): Promise<void> {
 
 export async function downloadCloud(): Promise<void> {
   emit({ state: "checking" });
-  const remote = await fetchRemoteDesk();
+  const token = await accessToken();
+  if (!token) {
+    emit({ state: "locked" });
+    return;
+  }
+  const remote = await fetchRemoteDesk(token);
   if (!remote.ok || !remote.desk || !remote.updatedAt) {
     emit({ state: "offline", at: stamp(), error: remote.ok ? "Nothing is stored in Supabase yet." : remote.error });
     return;
