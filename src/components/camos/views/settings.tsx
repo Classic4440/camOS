@@ -2,8 +2,17 @@ import { useState } from "react";
 import { HOME_LABEL, type HomeBlock } from "@/lib/camos/types";
 import { useDesk } from "@/lib/camos/store";
 import { parseDeskFile, serializeDesk } from "@/lib/camos/backup";
-import { DESK_SQL } from "@/lib/camos/remote";
+import ownerSql from "../../../../supabase/migrations/0002_owner_lock.sql?raw";
 import { downloadCloud, uploadThisBrowser, useDeskSync, type SyncState } from "@/lib/camos/sync";
+import {
+  changeOwnerPassword,
+  deviceLabel,
+  enrollFactor,
+  listFactors,
+  signOutOwner,
+  useOwnerSession,
+  verifyFactor,
+} from "@/lib/camos/owner-session";
 import { kampalaToday } from "@/lib/camos/format";
 import { Button, Field, Input, Page, PageHead, Textarea } from "@/components/camos/ui";
 import { cn } from "@/lib/utils";
@@ -38,17 +47,17 @@ export function SettingsView() {
         {sync.state === "needs-setup" ? (
           <>
             <p className="mt-3 text-sm">
-              The project answered, but it has no desk table. Open the Supabase SQL editor, run this once, then come back. Saving starts on its own.
+              The owner migration has not been applied. Until it is, a signed-out client can still read and change the desk. Run the migration in the Supabase SQL editor. It backs up the current rows and removes anonymous access.
             </p>
-            <pre className="mt-3 max-h-64 overflow-auto border border-line bg-surface p-3 text-xs leading-relaxed">{DESK_SQL}</pre>
+            <pre className="mt-3 max-h-64 overflow-auto border border-line bg-surface p-3 text-xs leading-relaxed">{ownerSql}</pre>
             <Button
               className="mt-3"
               onClick={() => {
-                void navigator.clipboard.writeText(DESK_SQL);
-                flashMsg("SQL copied.");
+                void navigator.clipboard.writeText(ownerSql);
+                flashMsg("Migration copied.");
               }}
             >
-              Copy SQL
+              Copy migration
             </Button>
           </>
         ) : null}
@@ -83,6 +92,7 @@ export function SettingsView() {
         </Field>
         <p className="text-sm text-muted">Changes save as you type, on this device.</p>
       </section>
+      <SecurityCenter />
       <section className="mt-10">
         <h2 className="font-display text-2xl">Theme</h2>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -253,7 +263,125 @@ function syncLine(sync: SyncState): string {
       return "Waiting for the table.";
     case "choose":
       return "A desk is already stored. Choose which copy to keep.";
+    case "locked":
+      return "Sign in before the cloud copy will move.";
     case "offline":
       return "Not saved just now.";
   }
+}
+
+function SecurityCenter() {
+  const owner = useOwnerSession();
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [secret, setSecret] = useState("");
+  const [factorId, setFactorId] = useState("");
+  const [code, setCode] = useState("");
+  const email = owner.status === "in" ? owner.user.email : "";
+
+  return (
+    <section className="mt-10 border-t border-line pt-4">
+      <h2 className="font-display text-2xl">Security</h2>
+      <p className="mt-2 text-sm text-muted">
+        {email ? `Signed in as ${email}.` : "Not signed in."} This device is {deviceLabel()}.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button
+          variant="ghost"
+          onClick={() => {
+            void signOutOwner(false);
+          }}
+        >
+          Sign out
+        </Button>
+        <Button
+          variant="ghost"
+          onClick={() => {
+            void signOutOwner(true);
+          }}
+        >
+          Sign out everywhere
+        </Button>
+      </div>
+      <form
+        className="mt-4 space-y-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          setError("");
+          setMessage("");
+          if (password.length < 8) {
+            setError("Use at least 8 characters.");
+            return;
+          }
+          void changeOwnerPassword(password).then((result) => {
+            if (!result.ok) setError(result.error);
+            else {
+              setPassword("");
+              setMessage("Password changed.");
+            }
+          });
+        }}
+      >
+        <Field label="New password">
+          <Input type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} />
+        </Field>
+        <Button type="submit">Change password</Button>
+      </form>
+      <div className="mt-4 space-y-3">
+        <Button
+          variant="ghost"
+          onClick={() => {
+            setError("");
+            void enrollFactor().then((result) => {
+              if (!result.ok) setError(result.error);
+              else {
+                setFactorId(result.id);
+                setSecret(result.secret);
+                setMessage("Enter the code from the authenticator to finish.");
+              }
+            });
+          }}
+        >
+          Set up an authenticator
+        </Button>
+        {secret ? <p className="font-mono text-sm">{secret}</p> : null}
+        {factorId ? (
+          <form
+            className="space-y-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void verifyFactor(factorId, code.trim()).then((result) => {
+                if (!result.ok) setError(result.error);
+                else {
+                  setSecret("");
+                  setFactorId("");
+                  setCode("");
+                  setMessage("Authenticator is on for this account.");
+                }
+              });
+            }}
+          >
+            <Field label="Authenticator code">
+              <Input inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(event) => setCode(event.target.value)} />
+            </Field>
+            <Button type="submit">Confirm code</Button>
+          </form>
+        ) : null}
+        <Button
+          variant="ghost"
+          onClick={() => {
+            void listFactors().then((result) => {
+              if (!result.ok) setError(result.error);
+              else setMessage(result.factors.length ? `${result.factors.length} authenticator factor on this account.` : "No authenticator is on.");
+            });
+          }}
+        >
+          Check authenticator
+        </Button>
+      </div>
+      {error ? <p className="mt-3 text-sm text-rust">{error}</p> : null}
+      {message ? <p className="mt-3 text-sm">{message}</p> : null}
+    </section>
+  );
 }

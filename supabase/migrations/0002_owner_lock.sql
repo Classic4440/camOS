@@ -14,8 +14,8 @@ create table if not exists public.desk_backup (
 insert into public.desk_backup (source_id, payload, updated_at)
 select id, payload, updated_at from public.desk;
 
--- Audit probe left by the security check. Not a user record.
-delete from public.desk where id = 'security-audit-probe';
+-- Audit probes. Not user records.
+delete from public.desk where id in ('security-audit-probe', 'anon-write-probe');
 
 alter table public.desk add column if not exists owner_id uuid references auth.users (id);
 
