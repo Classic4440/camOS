@@ -25,6 +25,7 @@ const LIBRARY = [
   { href: "/trading", label: "Trading" },
   { href: "/learn", label: "Learning" },
   { href: "/vault", label: "Vault" },
+  { href: "/codes", label: "Codes" },
   { href: "/ideas", label: "Ideas" },
   { href: "/marketing", label: "Marketing" },
   { href: "/analytics", label: "Analytics" },
@@ -50,6 +51,7 @@ const GO: Record<string, string> = {
   f: "/finance",
   t: "/trading",
   v: "/vault",
+  o: "/codes",
   s: "/settings",
 };
 

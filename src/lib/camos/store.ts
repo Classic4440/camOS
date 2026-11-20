@@ -17,6 +17,8 @@ import type {
   InventoryItem,
   Memo,
   Order,
+  OtpEntry,
+  OtpVault,
   Project,
   Quote,
   Release,
@@ -104,6 +106,9 @@ type Store = DeskData & {
   aiRemaining: () => number;
   clearSamples: () => void;
   resetDesk: () => void;
+  setOtpVault: (vault: OtpVault | null) => void;
+  addOtpEntry: (entry: OtpEntry) => void;
+  removeOtpEntry: (id: string) => void;
 };
 
 const DATA_KEYS: (keyof DeskData)[] = [
@@ -129,6 +134,7 @@ const DATA_KEYS: (keyof DeskData)[] = [
   "ideas",
   "campaigns",
   "memos",
+  "otpVault",
 ];
 
 let flashTimer: ReturnType<typeof setTimeout> | undefined;
@@ -412,7 +418,21 @@ export const useDesk = create<Store>()(
             flash: "Sample shop records removed.",
           };
         }),
-      resetDesk: () => set({ ...seed(), flash: "Desk restored to the opening records.", composer: null, focusId: null }),
+      resetDesk: () =>
+        set((state) => ({
+          ...seed(),
+          otpVault: state.otpVault,
+          flash: "Desk restored to the opening records. The code vault was kept.",
+          composer: null,
+          focusId: null,
+        })),
+      setOtpVault: (otpVault) => set({ otpVault }),
+      addOtpEntry: (entry) =>
+        set((state) => (state.otpVault ? { otpVault: { ...state.otpVault, entries: [entry, ...state.otpVault.entries] } } : {})),
+      removeOtpEntry: (id) =>
+        set((state) =>
+          state.otpVault ? { otpVault: { ...state.otpVault, entries: state.otpVault.entries.filter((entry) => entry.id !== id) } } : {},
+        ),
     }),
     {
       name: "camos-desk-v1",

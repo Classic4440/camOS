@@ -1,4 +1,4 @@
-import type { DeskData } from "./types";
+import type { DeskData, OtpVault } from "./types";
 
 const ARRAYS = [
   "tasks",
@@ -29,6 +29,7 @@ export function deskSnapshot(data: DeskData): DeskData {
   for (const key of ARRAYS) {
     assign(desk, data, key);
   }
+  desk.otpVault = data.otpVault ?? null;
   return desk;
 }
 
@@ -59,5 +60,21 @@ export function parseDeskFile(text: string): { ok: true; desk: DeskData } | { ok
   for (const key of ARRAYS) {
     if (!Array.isArray(desk[key])) return { ok: false, error: `The desk file is missing ${key}.` };
   }
-  return { ok: true, desk: desk as DeskData };
+  const otpVault = normalizeOtp(desk.otpVault);
+  if (otpVault === "bad") return { ok: false, error: "The code vault in this file is unreadable." };
+  return { ok: true, desk: { ...(desk as DeskData), otpVault } };
+}
+
+function normalizeOtp(value: unknown): OtpVault | null | "bad" {
+  if (value == null) return null;
+  if (typeof value !== "object") return "bad";
+  const vault = value as OtpVault;
+  if (vault.version !== 1 || typeof vault.salt !== "string" || typeof vault.check !== "string" || typeof vault.checkIv !== "string") {
+    return "bad";
+  }
+  if (!Array.isArray(vault.entries)) return "bad";
+  for (const entry of vault.entries) {
+    if (!entry || typeof entry.id !== "string" || typeof entry.cipher !== "string" || typeof entry.iv !== "string") return "bad";
+  }
+  return vault;
 }

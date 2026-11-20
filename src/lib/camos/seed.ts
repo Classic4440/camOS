@@ -353,5 +353,6 @@ export function seed(): DeskData {
     ideas: [],
     campaigns: [],
     memos: [],
+    otpVault: null,
   };
 }

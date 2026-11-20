@@ -13,6 +13,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppAnalyticsRouteImport } from './routes/_app/analytics'
 import { Route as AppBrandRouteImport } from './routes/_app/brand'
+import { Route as AppCodesRouteImport } from './routes/_app/codes'
 import { Route as AppCommandRouteImport } from './routes/_app/command'
 import { Route as AppFinanceRouteImport } from './routes/_app/finance'
 import { Route as AppIdeasRouteImport } from './routes/_app/ideas'
@@ -42,6 +43,11 @@ const AppAnalyticsRoute = AppAnalyticsRouteImport.update({
 const AppBrandRoute = AppBrandRouteImport.update({
   id: '/brand',
   path: '/brand',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCodesRoute = AppCodesRouteImport.update({
+  id: '/codes',
+  path: '/codes',
   getParentRoute: () => AppRoute,
 } as any)
 const AppCommandRoute = AppCommandRouteImport.update({
@@ -104,6 +110,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/analytics': typeof AppAnalyticsRoute
   '/brand': typeof AppBrandRoute
+  '/codes': typeof AppCodesRoute
   '/command': typeof AppCommandRoute
   '/finance': typeof AppFinanceRoute
   '/ideas': typeof AppIdeasRoute
@@ -119,6 +126,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/analytics': typeof AppAnalyticsRoute
   '/brand': typeof AppBrandRoute
+  '/codes': typeof AppCodesRoute
   '/command': typeof AppCommandRoute
   '/finance': typeof AppFinanceRoute
   '/ideas': typeof AppIdeasRoute
@@ -137,6 +145,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/_app/analytics': typeof AppAnalyticsRoute
   '/_app/brand': typeof AppBrandRoute
+  '/_app/codes': typeof AppCodesRoute
   '/_app/command': typeof AppCommandRoute
   '/_app/finance': typeof AppFinanceRoute
   '/_app/ideas': typeof AppIdeasRoute
@@ -156,6 +165,7 @@ export interface FileRouteTypes {
     | '/'
     | '/analytics'
     | '/brand'
+    | '/codes'
     | '/command'
     | '/finance'
     | '/ideas'
@@ -171,6 +181,7 @@ export interface FileRouteTypes {
   to:
     | '/analytics'
     | '/brand'
+    | '/codes'
     | '/command'
     | '/finance'
     | '/ideas'
@@ -188,6 +199,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/_app/analytics'
     | '/_app/brand'
+    | '/_app/codes'
     | '/_app/command'
     | '/_app/finance'
     | '/_app/ideas'
@@ -234,6 +246,13 @@ declare module '@tanstack/react-router' {
       path: '/brand'
       fullPath: '/brand'
       preLoaderRoute: typeof AppBrandRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/codes': {
+      id: '/_app/codes'
+      path: '/codes'
+      fullPath: '/codes'
+      preLoaderRoute: typeof AppCodesRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/command': {
@@ -319,6 +338,7 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppAnalyticsRoute: typeof AppAnalyticsRoute
   AppBrandRoute: typeof AppBrandRoute
+  AppCodesRoute: typeof AppCodesRoute
   AppCommandRoute: typeof AppCommandRoute
   AppFinanceRoute: typeof AppFinanceRoute
   AppIdeasRoute: typeof AppIdeasRoute
@@ -336,6 +356,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppAnalyticsRoute: AppAnalyticsRoute,
   AppBrandRoute: AppBrandRoute,
+  AppCodesRoute: AppCodesRoute,
   AppCommandRoute: AppCommandRoute,
   AppFinanceRoute: AppFinanceRoute,
   AppIdeasRoute: AppIdeasRoute,

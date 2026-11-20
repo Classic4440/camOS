@@ -266,6 +266,24 @@ export interface Memo {
   at: string;
 }
 
+export interface OtpEntry {
+  id: string;
+  issuer: string;
+  account: string;
+  cipher: string;
+  iv: string;
+  created: string;
+}
+
+/** Ciphertext only. The passphrase never goes in the desk. */
+export interface OtpVault {
+  version: 1;
+  salt: string;
+  check: string;
+  checkIv: string;
+  entries: OtpEntry[];
+}
+
 export interface DeskData {
   settings: Settings;
   tasks: Task[];
@@ -289,6 +307,7 @@ export interface DeskData {
   ideas: Idea[];
   campaigns: Campaign[];
   memos: Memo[];
+  otpVault: OtpVault | null;
 }
 
 export const HOME_LABEL: Record<HomeBlock, string> = {
