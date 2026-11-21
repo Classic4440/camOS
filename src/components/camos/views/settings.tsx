@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { HOME_LABEL, type HomeBlock } from "@/lib/camos/types";
 import { useDesk } from "@/lib/camos/store";
 import { parseDeskFile, serializeDesk } from "@/lib/camos/backup";
@@ -13,6 +13,7 @@ import {
   useOwnerSession,
   verifyFactor,
 } from "@/lib/camos/owner-session";
+import { fetchIsAdmin, inviteUser } from "@/lib/camos/invite";
 import { kampalaToday } from "@/lib/camos/format";
 import { Button, Field, Input, Page, PageHead, Textarea } from "@/components/camos/ui";
 import { cn } from "@/lib/utils";
@@ -71,6 +72,7 @@ export function SettingsView() {
         ) : null}
         {sync.state === "offline" ? <p className="mt-3 text-sm text-rust">{sync.error} This browser still has the records.</p> : null}
       </section>
+      <InvitePanel />
       <section className="space-y-4 border-t border-line pt-4">
         <Field label="What the desk calls you">
           <Input value={settings.called} onChange={(event) => patchSettings({ called: event.target.value })} />
@@ -268,6 +270,108 @@ function syncLine(sync: SyncState): string {
     case "offline":
       return "Not saved just now.";
   }
+}
+
+function InvitePanel() {
+  const [admin, setAdmin] = useState<boolean | null>(null);
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [link, setLink] = useState<string | null>(null);
+  const flashMsg = useDesk((state) => state.flashMsg);
+
+  useEffect(() => {
+    void fetchIsAdmin().then(setAdmin);
+  }, []);
+
+  if (admin === null) {
+    return (
+      <section className="mb-10 border-t border-line pt-4">
+        <h2 className="font-display text-2xl">Invite users</h2>
+        <p className="mt-2 text-sm text-muted">Checking admin access…</p>
+      </section>
+    );
+  }
+
+  if (!admin) return null;
+
+  async function run(mode: "email" | "link") {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    setLink(null);
+    const result = await inviteUser(email, mode);
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    if (result.mode === "link") {
+      setLink(result.link);
+      setNotice(`Invite link ready for ${result.email}.`);
+      flashMsg("Invite link ready.");
+      return;
+    }
+    setNotice(`Invite email sent to ${result.email}. They get their own isolated desk.`);
+    flashMsg("Invite email sent.");
+    setEmail("");
+  }
+
+  return (
+    <section className="mb-10 border-t border-line pt-4">
+      <h2 className="font-display text-2xl">Invite users</h2>
+      <p className="mt-2 text-sm text-muted">
+        Only you (admin) can invite. Invited people get their own private desk — they never see yours. Public sign-up stays closed.
+      </p>
+      <form
+        className="mt-4 space-y-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void run("email");
+        }}
+      >
+        <Field label="Email to invite">
+          <Input
+            type="email"
+            autoComplete="off"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="collaborator@example.com"
+            required
+          />
+        </Field>
+        <div className="flex flex-wrap gap-2">
+          <Button type="submit" variant="primary" disabled={busy || !email.trim()}>
+            {busy ? "Working…" : "Email invite"}
+          </Button>
+          <Button
+            type="button"
+            variant="line"
+            disabled={busy || !email.trim()}
+            onClick={() => void run("link")}
+          >
+            Copy link
+          </Button>
+        </div>
+      </form>
+      {error ? <p className="mt-3 text-sm text-rust">{error}</p> : null}
+      {notice ? <p className="mt-3 text-sm">{notice}</p> : null}
+      {link ? (
+        <div className="mt-3 space-y-2">
+          <p className="break-all rounded border border-line bg-surface p-3 font-mono text-xs leading-relaxed">{link}</p>
+          <Button
+            onClick={() => {
+              void navigator.clipboard.writeText(link);
+              flashMsg("Invite link copied.");
+            }}
+          >
+            Copy to clipboard
+          </Button>
+        </div>
+      ) : null}
+    </section>
+  );
 }
 
 function SecurityCenter() {
