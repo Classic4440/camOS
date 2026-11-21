@@ -66,6 +66,11 @@ export function Shell({ children }: { children: ReactNode }) {
   const [palette, setPalette] = useState(false);
   const [help, setHelp] = useState(false);
 
+  // Always resolve owner session on mount so the lock cannot be skipped.
+  useEffect(() => {
+    void ensureOwner();
+  }, []);
+
   useEffect(() => {
     setMenu(false);
   }, [pathname]);
@@ -86,7 +91,10 @@ export function Shell({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (owner.status === "in") startDeskSync();
   }, [owner.status]);
+
+  useEffect(() => {
     let timer = 0;
+    let armed = false;
     function onKey(event: KeyboardEvent) {
       const meta = event.metaKey || event.ctrlKey;
       if (meta && event.key.toLowerCase() === "k") {
@@ -125,9 +133,13 @@ export function Shell({ children }: { children: ReactNode }) {
       void navigate({ to: path });
     }
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("keydown", onKey);
+    };
   }, [navigate]);
 
+  // Auth guard: unauthenticated visitors never see the desk or /codes.
   if (owner.status !== "in") {
     return owner.status === "loading" ? (
       <div className="grid h-dvh place-items-center bg-paper text-sm text-muted">Checking the lock.</div>
