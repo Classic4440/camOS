@@ -43,8 +43,9 @@ async function deriveKek(secret: string, salt: Uint8Array): Promise<CryptoKey> {
   );
 }
 
+/** DEK must be extractable so change-passphrase can re-wrap it. */
 async function importDek(rawKey: Uint8Array): Promise<CryptoKey> {
-  return crypto.subtle.importKey("raw", raw(rawKey), { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+  return crypto.subtle.importKey("raw", raw(rawKey), { name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
 }
 
 async function exportDek(key: CryptoKey): Promise<Uint8Array> {
@@ -79,7 +80,7 @@ export type CreateVaultResult = { vault: OtpVaultV2; recoveryPhrase: string };
 export async function createVault(passphrase: string): Promise<CreateVaultResult> {
   if (passphrase.trim().length < 8) throw new Error("Use at least 8 characters.");
 
-  const recoveryPhrase = generateRecoveryPhrase();
+  const recoveryPhrase = await generateRecoveryPhrase();
   const passSalt = crypto.getRandomValues(new Uint8Array(16));
   const recoverySalt = crypto.getRandomValues(new Uint8Array(16));
   const dekBytes = crypto.getRandomValues(new Uint8Array(32));
@@ -90,7 +91,6 @@ export async function createVault(passphrase: string): Promise<CreateVaultResult
   const passWrap = await wrapDek(passKek, dekBytes);
   const recWrap = await wrapDek(recKek, dekBytes);
 
-  // Prove the DEK works.
   await seal(dek, CHECK);
 
   openDek = dek;
@@ -145,19 +145,13 @@ async function unlockV1(vault: OtpVaultV1, passphrase: string): Promise<void> {
     openDek = null;
     throw new Error("That passphrase does not open these codes.");
   }
-  // v1 used the passphrase key directly as the sealing key.
   openDek = key;
 }
 
-/** True when an unlocked v1 vault still needs migration to recovery-capable v2. */
 export function needsRecoveryMigration(vault: OtpVault | null): boolean {
   return !!vault && vault.version === 1 && openDek !== null;
 }
 
-/**
- * Migrate an unlocked v1 vault to v2 with a new recovery phrase.
- * Re-seals every entry under a fresh DEK. Passphrase must be the one just used to unlock.
- */
 export async function migrateVaultToV2(
   vault: OtpVaultV1,
   passphrase: string,
@@ -187,7 +181,6 @@ export async function migrateVaultToV2(
   };
 }
 
-/** Change passphrase on an unlocked v2 vault. Secrets stay under the same DEK. */
 export async function changeVaultPassphrase(
   vault: OtpVaultV2,
   oldPassphrase: string,
@@ -196,7 +189,6 @@ export async function changeVaultPassphrase(
   if (!openDek) throw new Error("Unlock the vault first.");
   if (newPassphrase.trim().length < 8) throw new Error("Use at least 8 characters.");
 
-  // Verify old passphrase unwraps the current DEK.
   const oldKek = await deriveKek(oldPassphrase, decode(vault.passSalt));
   try {
     await unwrapDek(oldKek, vault.dekCipherPass, vault.dekIvPass);
