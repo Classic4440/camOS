@@ -52,7 +52,7 @@ export function PageHead({
     <header className="mb-8 flex flex-col gap-4 border-b border-line pb-6 md:flex-row md:items-end md:justify-between">
       <div className="min-w-0">
         <p className="text-xs font-semibold uppercase tracking-widest text-faint">{kicker}</p>
-        <h1 className="mt-1 font-display text-3xl font-medium leading-tight">{title}</h1>
+        <h1 className="mt-1 font-display text-3xl font-medium leading-tight sm:text-4xl">{title}</h1>
         {lede ? <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted">{lede}</p> : null}
       </div>
       {actions ? <div className="flex shrink-0 flex-wrap gap-2">{actions}</div> : null}
@@ -95,14 +95,14 @@ export function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-sm font-semibold">{label}</span>
+      <span className="mb-1.5 block text-sm font-semibold">{label}</span>
       {children}
       {error ? (
-        <span className="mt-1 block text-sm text-rust" role="alert">
+        <span className="mt-1.5 block text-sm text-rust" role="alert">
           {error}
         </span>
       ) : hint ? (
-        <span className="mt-1 block text-sm text-muted">{hint}</span>
+        <span className="mt-1.5 block text-sm text-muted">{hint}</span>
       ) : null}
     </label>
   );
@@ -154,6 +154,94 @@ export function Empty({ title, body, action }: { title: string; body: string; ac
       {action ? <div className="mt-4">{action}</div> : null}
     </div>
   );
+}
+
+/** Responsive tile grid — cards in a tight, even lattice. */
+export function TileGrid({
+  children,
+  cols = 3,
+  className,
+}: {
+  children: ReactNode;
+  cols?: 2 | 3 | 4;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "grid gap-3 sm:gap-4",
+        cols === 2 && "grid-cols-1 sm:grid-cols-2",
+        cols === 3 && "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+        cols === 4 && "grid-cols-2 sm:grid-cols-2 lg:grid-cols-4",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** Single desk tile / card. Use as a static surface or pass `href` / `onClick` for interaction. */
+export function Tile({
+  kicker,
+  title,
+  detail,
+  stamp,
+  children,
+  href,
+  onClick,
+  active,
+  className,
+}: {
+  kicker?: string;
+  title?: string;
+  detail?: string;
+  stamp?: ReactNode;
+  children?: ReactNode;
+  href?: string;
+  onClick?: () => void;
+  active?: boolean;
+  className?: string;
+}) {
+  const body = (
+    <>
+      {(kicker || stamp) && (
+        <div className="mb-2 flex items-start justify-between gap-2">
+          {kicker ? <p className="text-xs font-semibold uppercase tracking-widest text-faint">{kicker}</p> : <span />}
+          {stamp}
+        </div>
+      )}
+      {title ? <p className="font-display text-lg leading-snug">{title}</p> : null}
+      {detail ? <p className="mt-1.5 text-sm leading-relaxed text-muted">{detail}</p> : null}
+      {children}
+    </>
+  );
+
+  const surface = cn(
+    "flex h-full min-h-[7.5rem] flex-col border bg-elevated p-4 text-left transition-colors",
+    active ? "border-ink" : "border-line hover:border-ink",
+    (href || onClick) && "cursor-pointer",
+    className,
+  );
+
+  if (href) {
+    // Lazy import avoided — callers often use TanStack Link; plain <a> keeps ui free of router.
+    return (
+      <a href={href} className={surface}>
+        {body}
+      </a>
+    );
+  }
+
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={surface}>
+        {body}
+      </button>
+    );
+  }
+
+  return <div className={surface}>{body}</div>;
 }
 
 export function Money({ value, currency }: { value: number; currency: Currency }) {
@@ -361,7 +449,7 @@ export function DataTable<T extends { id: string }>({
                         type="checkbox"
                         checked={selected.includes(row.id)}
                         onChange={() => toggle(row.id)}
-                        aria-label={`Select ${visible[0] ? "row" : "row"}`}
+                        aria-label="Select row"
                       />
                     </label>
                   ) : null}
