@@ -14,6 +14,8 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
+const INVITE_REDIRECT = "https://camos.uwon.workers.dev/welcome";
+
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -47,7 +49,6 @@ Deno.serve(async (req) => {
     return json({ error: "Sign in required." }, 401);
   }
 
-  // Caller client (user JWT) — used only to identify who is asking.
   const userClient = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: authHeader } },
     auth: { persistSession: false, autoRefreshToken: false },
@@ -62,7 +63,6 @@ Deno.serve(async (req) => {
     return json({ error: "Invalid or expired session." }, 401);
   }
 
-  // Admin check against profiles (service role so RLS cannot hide the row).
   const adminClient = createClient(supabaseUrl, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
@@ -90,10 +90,7 @@ Deno.serve(async (req) => {
   const email = (body.email ?? "").trim().toLowerCase();
   const mode = body.mode === "link" ? "link" : "email";
 
-  if (!email || !/^[^
-\s@]+@[^
-\s@]+\.[^
-\s@]+$/.test(email)) {
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return json({ error: "A valid email is required." }, 400);
   }
 
@@ -101,6 +98,7 @@ Deno.serve(async (req) => {
     const { data, error } = await adminClient.auth.admin.generateLink({
       type: "invite",
       email,
+      options: { redirectTo: INVITE_REDIRECT },
     });
     if (error) {
       return json({ error: error.message }, 400);
@@ -120,7 +118,9 @@ Deno.serve(async (req) => {
     return json({ ok: true, mode: "link", email, link: actionLink });
   }
 
-  const { data, error } = await adminClient.auth.admin.inviteUserByEmail(email);
+  const { data, error } = await adminClient.auth.admin.inviteUserByEmail(email, {
+    redirectTo: INVITE_REDIRECT,
+  });
   if (error) {
     return json({ error: error.message }, 400);
   }
