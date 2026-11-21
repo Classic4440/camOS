@@ -9,6 +9,21 @@
 
 ---
 
+## Access model
+
+CamOS is a **private, single-owner desk**. It is not a multi-user product.
+
+| Layer | Behaviour |
+| --- | --- |
+| **Front door** | Every visit is gated by the **Owner Lock** (email + password via Supabase Auth). Unauthenticated users never reach the desk. |
+| **Sign-up** | Public registration is **closed**. New accounts are blocked on the frontend and by a database trigger after the first owner exists. |
+| **Inside** | After a successful sign-in the full desk loads (sidebar, workspaces, sync). |
+| **`/codes`** | Internal **authenticator backup** tool (store TOTP secrets for GitHub, Discord, etc.). It is **not** the login MFA step. It is only reachable after sign-in. |
+
+There is **no MFA challenge on the Owner Lock login screen** — only standard Supabase email/password. MFA factors on the Supabase user account are optional and separate from the `/codes` vault.
+
+---
+
 ## Team and credits
 
 Huge shout-out to everyone who builds, backs and runs camOS.
@@ -25,7 +40,7 @@ Created by **Cam Leinad** and the **CAM ALL MAY** team. Thank you to every colla
 
 ## What is inside
 
-The app opens behind an owner lock and, once signed in, loads the desk. Everything lives inside a single shell with a sidebar index on desktop and a bottom dock plus index drawer on mobile.
+The app opens behind the Owner Lock and, once signed in, loads the desk. Everything lives inside a single shell with a sidebar index on desktop and a bottom dock plus index drawer on mobile.
 
 ### Primary workspaces
 
@@ -46,7 +61,7 @@ The app opens behind an owner lock and, once signed in, loads the desk. Everythi
 | `/trading` | Trading | Trades |
 | `/learn` | Learning | Learning notes and study |
 | `/vault` | Vault | Private notes |
-| `/codes` | Codes | Authenticator and auth codes |
+| `/codes` | Codes | Authenticator / TOTP backup vault (internal tool) |
 | `/ideas` | Ideas | Idea capture |
 | `/marketing` | Marketing | Campaigns |
 | `/analytics` | Analytics | Charts and numbers |
@@ -73,7 +88,7 @@ The app opens behind an owner lock and, once signed in, loads the desk. Everythi
 | Styling and UI | Tailwind CSS v4, Radix UI primitives, lucide-react, cmdk, sonner, vaul, recharts |
 | State and forms | zustand, react-hook-form, zod |
 | Backend and data | Supabase (`@supabase/supabase-js`), PostgreSQL (`pg`, Kysely, PGlite) |
-| Auth | Better Auth, jose |
+| Owner auth | Supabase Auth (email/password) + Owner Lock gate in the Shell |
 | Hosting | Cloudflare Workers (live app), Vercel configuration included |
 | Quality | ESLint, Prettier, Playwright, Node test runner |
 
@@ -92,7 +107,7 @@ camOS/
 ├── server/            Server middleware
 ├── public/            Static assets
 ├── migrations/        Database migrations (auth)
-├── supabase/          Supabase migrations
+├── supabase/          Supabase migrations (including owner lock RLS)
 ├── scripts/           Build, migrate, preview and check scripts
 ├── artifacts/         Generated artifacts
 ├── attachments/       Project attachments
@@ -135,15 +150,9 @@ The dev server listens on `0.0.0.0:8080`.
 ## Deployment
 
 - **Live:** Cloudflare Workers at `camOS.uwon.workers.dev`.
-- **Backend:** Supabase.
+- **Backend:** Supabase (RLS locked to `authenticated` after the owner migration).
 - **Config:** a `vercel.json` is included for Vercel deployments.
 - Never commit secrets or `.env` files. Environment values are injected by the platform at deploy time.
-
----
-
-## Roadmap
-
-- **Auth app section:** a dedicated place to store all your own 2FA and authenticator codes inside camOS, so you have a pure auth code backup you control instead of relying on random third-party apps.
 
 ---
 
