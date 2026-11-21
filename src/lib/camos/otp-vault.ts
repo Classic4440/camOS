@@ -1,16 +1,18 @@
-import type { OtpVault } from "./types";
+import type { OtpEntry, OtpVault, OtpVaultV1, OtpVaultV2 } from "./types";
+import { generateRecoveryPhrase, normalizePhrase } from "./recovery-phrase";
 
 const CHECK = "camos-otp-ok";
 const ITERATIONS = 120_000;
 
-let openKey: CryptoKey | null = null;
+/** Unwrapped data-encryption key while the vault is open. Never persisted. */
+let openDek: CryptoKey | null = null;
 
 export function vaultKey(): CryptoKey | null {
-  return openKey;
+  return openDek;
 }
 
 export function lockVault(): void {
-  openKey = null;
+  openDek = null;
 }
 
 function raw(bytes: Uint8Array): ArrayBuffer {
@@ -30,8 +32,8 @@ function decode(text: string): Uint8Array {
   return out;
 }
 
-async function derive(passphrase: string, salt: Uint8Array): Promise<CryptoKey> {
-  const material = await crypto.subtle.importKey("raw", new TextEncoder().encode(passphrase), "PBKDF2", false, ["deriveKey"]);
+async function deriveKek(secret: string, salt: Uint8Array): Promise<CryptoKey> {
+  const material = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), "PBKDF2", false, ["deriveKey"]);
   return crypto.subtle.deriveKey(
     { name: "PBKDF2", salt: raw(salt), iterations: ITERATIONS, hash: "SHA-256" },
     material,
@@ -39,6 +41,14 @@ async function derive(passphrase: string, salt: Uint8Array): Promise<CryptoKey> 
     false,
     ["encrypt", "decrypt"],
   );
+}
+
+async function importDek(rawKey: Uint8Array): Promise<CryptoKey> {
+  return crypto.subtle.importKey("raw", raw(rawKey), { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+}
+
+async function exportDek(key: CryptoKey): Promise<Uint8Array> {
+  return new Uint8Array(await crypto.subtle.exportKey("raw", key));
 }
 
 export async function seal(key: CryptoKey, text: string): Promise<{ cipher: string; iv: string }> {
@@ -52,34 +62,181 @@ export async function openSeal(key: CryptoKey, cipher: string, iv: string): Prom
   return new TextDecoder().decode(plain);
 }
 
-export async function createVault(passphrase: string): Promise<OtpVault> {
+async function wrapDek(kek: CryptoKey, dekBytes: Uint8Array): Promise<{ cipher: string; iv: string }> {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const sealed = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, kek, raw(dekBytes)));
+  return { cipher: encode(sealed), iv: encode(iv) };
+}
+
+async function unwrapDek(kek: CryptoKey, cipher: string, iv: string): Promise<CryptoKey> {
+  const plain = new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv: raw(decode(iv)) }, kek, raw(decode(cipher))));
+  return importDek(plain);
+}
+
+export type CreateVaultResult = { vault: OtpVaultV2; recoveryPhrase: string };
+
+/** Create a v2 vault. Returns the vault (ciphertext only) and a one-time recovery phrase. */
+export async function createVault(passphrase: string): Promise<CreateVaultResult> {
   if (passphrase.trim().length < 8) throw new Error("Use at least 8 characters.");
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const key = await derive(passphrase, salt);
-  const check = await seal(key, CHECK);
-  openKey = key;
-  return { version: 1, salt: encode(salt), check: check.cipher, checkIv: check.iv, entries: [] };
+
+  const recoveryPhrase = generateRecoveryPhrase();
+  const passSalt = crypto.getRandomValues(new Uint8Array(16));
+  const recoverySalt = crypto.getRandomValues(new Uint8Array(16));
+  const dekBytes = crypto.getRandomValues(new Uint8Array(32));
+  const dek = await importDek(dekBytes);
+
+  const passKek = await deriveKek(passphrase, passSalt);
+  const recKek = await deriveKek(normalizePhrase(recoveryPhrase), recoverySalt);
+  const passWrap = await wrapDek(passKek, dekBytes);
+  const recWrap = await wrapDek(recKek, dekBytes);
+
+  // Prove the DEK works.
+  await seal(dek, CHECK);
+
+  openDek = dek;
+  return {
+    recoveryPhrase,
+    vault: {
+      version: 2,
+      passSalt: encode(passSalt),
+      recoverySalt: encode(recoverySalt),
+      dekCipherPass: passWrap.cipher,
+      dekIvPass: passWrap.iv,
+      dekCipherRec: recWrap.cipher,
+      dekIvRec: recWrap.iv,
+      entries: [],
+    },
+  };
 }
 
 export async function unlockVault(vault: OtpVault, passphrase: string): Promise<void> {
-  const key = await derive(passphrase, decode(vault.salt));
+  if (vault.version === 1) {
+    await unlockV1(vault, passphrase);
+    return;
+  }
+  const kek = await deriveKek(passphrase, decode(vault.passSalt));
+  try {
+    openDek = await unwrapDek(kek, vault.dekCipherPass, vault.dekIvPass);
+  } catch {
+    openDek = null;
+    throw new Error("That passphrase does not open these codes.");
+  }
+}
+
+export async function unlockVaultWithRecovery(vault: OtpVault, recoveryPhrase: string): Promise<void> {
+  if (vault.version !== 2) {
+    throw new Error("This vault has no recovery key yet. Unlock with the passphrase and add one.");
+  }
+  const kek = await deriveKek(normalizePhrase(recoveryPhrase), decode(vault.recoverySalt));
+  try {
+    openDek = await unwrapDek(kek, vault.dekCipherRec, vault.dekIvRec);
+  } catch {
+    openDek = null;
+    throw new Error("That recovery phrase does not open these codes.");
+  }
+}
+
+async function unlockV1(vault: OtpVaultV1, passphrase: string): Promise<void> {
+  const key = await deriveKek(passphrase, decode(vault.salt));
   try {
     const text = await openSeal(key, vault.check, vault.checkIv);
     if (text !== CHECK) throw new Error("closed");
   } catch {
-    openKey = null;
+    openDek = null;
     throw new Error("That passphrase does not open these codes.");
   }
-  openKey = key;
+  // v1 used the passphrase key directly as the sealing key.
+  openDek = key;
+}
+
+/** True when an unlocked v1 vault still needs migration to recovery-capable v2. */
+export function needsRecoveryMigration(vault: OtpVault | null): boolean {
+  return !!vault && vault.version === 1 && openDek !== null;
+}
+
+/**
+ * Migrate an unlocked v1 vault to v2 with a new recovery phrase.
+ * Re-seals every entry under a fresh DEK. Passphrase must be the one just used to unlock.
+ */
+export async function migrateVaultToV2(
+  vault: OtpVaultV1,
+  passphrase: string,
+): Promise<CreateVaultResult & { entries: OtpEntry[] }> {
+  if (!openDek) throw new Error("Unlock the vault first.");
+  if (passphrase.trim().length < 8) throw new Error("Use at least 8 characters.");
+
+  const plainSecrets: { entry: OtpEntry; secret: string }[] = [];
+  for (const entry of vault.entries) {
+    plainSecrets.push({ entry, secret: await openSeal(openDek, entry.cipher, entry.iv) });
+  }
+
+  const created = await createVault(passphrase);
+  const nextEntries: OtpEntry[] = [];
+  for (const row of plainSecrets) {
+    const sealed = await seal(openDek!, row.secret);
+    nextEntries.push({
+      ...row.entry,
+      cipher: sealed.cipher,
+      iv: sealed.iv,
+    });
+  }
+  return {
+    ...created,
+    vault: { ...created.vault, entries: nextEntries },
+    entries: nextEntries,
+  };
+}
+
+/** Change passphrase on an unlocked v2 vault. Secrets stay under the same DEK. */
+export async function changeVaultPassphrase(
+  vault: OtpVaultV2,
+  oldPassphrase: string,
+  newPassphrase: string,
+): Promise<OtpVaultV2> {
+  if (!openDek) throw new Error("Unlock the vault first.");
+  if (newPassphrase.trim().length < 8) throw new Error("Use at least 8 characters.");
+
+  // Verify old passphrase unwraps the current DEK.
+  const oldKek = await deriveKek(oldPassphrase, decode(vault.passSalt));
+  try {
+    await unwrapDek(oldKek, vault.dekCipherPass, vault.dekIvPass);
+  } catch {
+    throw new Error("The current passphrase is wrong.");
+  }
+
+  const dekBytes = await exportDek(openDek);
+  const passSalt = crypto.getRandomValues(new Uint8Array(16));
+  const passKek = await deriveKek(newPassphrase, passSalt);
+  const passWrap = await wrapDek(passKek, dekBytes);
+
+  return {
+    ...vault,
+    passSalt: encode(passSalt),
+    dekCipherPass: passWrap.cipher,
+    dekIvPass: passWrap.iv,
+  };
 }
 
 export function readCodeBackup(text: string): OtpVault {
   const parsed = JSON.parse(text) as { camosCodes?: unknown; vault?: OtpVault };
   const vault = parsed.camosCodes === 1 ? parsed.vault : null;
-  if (!vault || vault.version !== 1 || typeof vault.salt !== "string" || typeof vault.check !== "string" || !Array.isArray(vault.entries)) {
+  if (!vault || !Array.isArray(vault.entries)) {
     throw new Error("That is not a CamOS code backup.");
   }
-  return vault;
+  if (vault.version === 2) {
+    if (
+      typeof vault.passSalt !== "string" ||
+      typeof vault.recoverySalt !== "string" ||
+      typeof vault.dekCipherPass !== "string"
+    ) {
+      throw new Error("That is not a CamOS code backup.");
+    }
+    return vault;
+  }
+  if (vault.version === 1 && typeof vault.salt === "string" && typeof vault.check === "string") {
+    return vault;
+  }
+  throw new Error("That is not a CamOS code backup.");
 }
 
 export function writeCodeBackup(vault: OtpVault): string {
