@@ -86,7 +86,6 @@ export interface Release {
   lyrics: string;
   notes: string;
   tracks: Track[];
-  /** RouteNote-style gates. Missing means not done, including on older desk files. */
   artwork?: boolean;
   metadataReady?: boolean;
   masters?: boolean;
@@ -107,7 +106,6 @@ export interface Royalty {
   amount: number;
   currency: Currency;
   certainty: Certainty;
-  /** Set once the row has been copied into the finance ledger. */
   ledgerId?: string | null;
 }
 
@@ -275,14 +273,32 @@ export interface OtpEntry {
   created: string;
 }
 
-/** Ciphertext only. The passphrase never goes in the desk. */
-export interface OtpVault {
+/** Legacy v1: secrets sealed directly with passphrase-derived key. */
+export interface OtpVaultV1 {
   version: 1;
   salt: string;
   check: string;
   checkIv: string;
   entries: OtpEntry[];
 }
+
+/**
+ * v2 zero-knowledge vault.
+ * Random DEK encrypts entry secrets. DEK is wrapped by passphrase KEK and recovery KEK.
+ * Only ciphertext + salts are stored. Never passphrase, recovery phrase, or raw DEK.
+ */
+export interface OtpVaultV2 {
+  version: 2;
+  passSalt: string;
+  recoverySalt: string;
+  dekCipherPass: string;
+  dekIvPass: string;
+  dekCipherRec: string;
+  dekIvRec: string;
+  entries: OtpEntry[];
+}
+
+export type OtpVault = OtpVaultV1 | OtpVaultV2;
 
 export interface DeskData {
   settings: Settings;
