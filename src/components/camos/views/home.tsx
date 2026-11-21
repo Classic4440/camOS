@@ -4,7 +4,7 @@ import { formatDay, kampalaToday, salutation, weekDates, weekdayShort } from "@/
 import { useDesk } from "@/lib/camos/store";
 import { HOME_LABEL, RELEASE_STAGE_LABEL, type HomeBlock } from "@/lib/camos/types";
 import { cn } from "@/lib/utils";
-import { Button, Page, Stamp } from "@/components/camos/ui";
+import { Button, Page, Stamp, Tile, TileGrid } from "@/components/camos/ui";
 import { useState, type ReactNode } from "react";
 
 export function HomeView() {
@@ -47,43 +47,57 @@ export function HomeView() {
     ),
     attention: <Attention today={today} />,
     houses: (
-      <ul className="divide-y divide-line border-y border-line">
-        <HouseLink
-          href="/music"
-          name="Cam Leinad"
-          detail={album ? `${album.title} · ${RELEASE_STAGE_LABEL[album.stage]} · ${releaseFact(album)}` : "No release on the catalog yet."}
-        />
-        <HouseLink
-          href="/brand"
-          name="Classic Brand"
-          detail={`${orders.filter((order) => !order.sample && order.stage !== "delivered").length} live jobs in progress · Matugga`}
-        />
-        <HouseLink
-          href="/lab"
-          name="Lab"
-          detail={`${projects.filter((project) => project.status === "active").length} active projects of ${projects.length} recorded`}
-        />
-      </ul>
+      <TileGrid cols={3}>
+        <Link to="/music" className="block h-full">
+          <Tile
+            kicker="Music"
+            title="Cam Leinad"
+            detail={album ? `${album.title} · ${RELEASE_STAGE_LABEL[album.stage]} · ${releaseFact(album)}` : "No release on the catalog yet."}
+            className="h-full"
+          />
+        </Link>
+        <Link to="/brand" className="block h-full">
+          <Tile
+            kicker="Shop"
+            title="Classic Brand"
+            detail={`${orders.filter((order) => !order.sample && order.stage !== "delivered").length} live jobs in progress · Matugga`}
+            className="h-full"
+          />
+        </Link>
+        <Link to="/lab" className="block h-full">
+          <Tile
+            kicker="Build"
+            title="Lab"
+            detail={`${projects.filter((project) => project.status === "active").length} active projects of ${projects.length} recorded`}
+            className="h-full"
+          />
+        </Link>
+      </TileGrid>
     ),
     week: (
-      <ol className="grid grid-cols-2 gap-px border border-line bg-line sm:grid-cols-4 lg:grid-cols-7">
+      <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
         {weekDates(today).map((date) => {
           const count =
             tasks.filter((task) => !task.done && task.due === date).length +
             orders.filter((order) => !order.sample && order.stage !== "delivered" && order.due === date).length;
           const active = date === day;
           return (
-            <li key={date} className="bg-paper">
+            <li key={date}>
               <button
                 type="button"
                 onClick={() => setDay(date)}
-                className={cn("flex min-h-16 w-full flex-col items-start px-3 py-2 text-left", active && "bg-ink text-paper")}
+                className={cn(
+                  "flex min-h-20 w-full flex-col items-start border px-3 py-2.5 text-left transition-colors",
+                  active ? "border-ink bg-ink text-paper" : "border-line bg-elevated hover:border-ink",
+                )}
               >
-                <span className={cn("text-xs uppercase tracking-widest", active ? "text-paper" : "text-faint")}>
+                <span className={cn("text-xs uppercase tracking-widest", active ? "text-paper/70" : "text-faint")}>
                   {date === today ? "Today" : weekdayShort(date)}
                 </span>
-                <span className="font-display text-lg tabular-nums">{date.slice(8)}</span>
-                <span className="text-xs tabular-nums">{count === 0 ? "Clear" : `${count} due`}</span>
+                <span className="mt-1 font-display text-xl tabular-nums">{date.slice(8)}</span>
+                <span className={cn("mt-auto pt-2 text-xs tabular-nums", active ? "text-paper/80" : "text-muted")}>
+                  {count === 0 ? "Clear" : `${count} due`}
+                </span>
               </button>
             </li>
           );
@@ -91,28 +105,31 @@ export function HomeView() {
       </ol>
     ),
     books: (
-      <div className="grid gap-6 md:grid-cols-3">
-        <Link to="/finance" className="border-t-2 border-ink pt-3">
-          <p className="text-xs font-semibold uppercase tracking-widest text-faint">Actual cash</p>
-          <p className="mt-2 font-display text-2xl tabular-nums">{formatUg(cashPosition(txns, "UGX"))}</p>
-          <p className="text-sm text-muted">UGX shop book. Dollars stay on the ledger.</p>
+      <TileGrid cols={3}>
+        <Link to="/finance" className="block h-full">
+          <Tile kicker="Actual cash" className="h-full">
+            <p className="mt-1 font-display text-2xl tabular-nums">{formatUg(cashPosition(txns, "UGX"))}</p>
+            <p className="mt-1.5 text-sm text-muted">UGX shop book. Dollars stay on the ledger.</p>
+          </Tile>
         </Link>
-        <Link to="/learn" className="border-t border-line pt-3">
-          <p className="text-xs font-semibold uppercase tracking-widest text-faint">Study</p>
-          <p className="mt-2 font-display text-2xl tabular-nums">
-            {paths.length ? Math.round(paths.reduce((sum, path) => sum + path.progress, 0) / paths.length) : 0}
-            <span className="text-base text-muted">%</span>
-          </p>
-          <p className="text-sm text-muted">Mean progress across recorded paths.</p>
+        <Link to="/learn" className="block h-full">
+          <Tile kicker="Study" className="h-full">
+            <p className="mt-1 font-display text-2xl tabular-nums">
+              {paths.length ? Math.round(paths.reduce((sum, path) => sum + path.progress, 0) / paths.length) : 0}
+              <span className="text-base text-muted">%</span>
+            </p>
+            <p className="mt-1.5 text-sm text-muted">Mean progress across recorded paths.</p>
+          </Tile>
         </Link>
-        <Link to="/ideas" className="border-t border-line pt-3">
-          <p className="text-xs font-semibold uppercase tracking-widest text-faint">Ideas</p>
-          <p className="mt-2 font-display text-2xl tabular-nums">{ideas.filter((idea) => idea.status !== "shelved").length}</p>
-          <p className="text-sm text-muted">
-            {decisions.filter((item) => item.status === "open").length} open decisions on the task desk.
-          </p>
+        <Link to="/ideas" className="block h-full">
+          <Tile kicker="Ideas" className="h-full">
+            <p className="mt-1 font-display text-2xl tabular-nums">{ideas.filter((idea) => idea.status !== "shelved").length}</p>
+            <p className="mt-1.5 text-sm text-muted">
+              {decisions.filter((item) => item.status === "open").length} open decisions on the task desk.
+            </p>
+          </Tile>
         </Link>
-      </div>
+      </TileGrid>
     ),
   };
 
@@ -145,7 +162,7 @@ export function HomeView() {
           .
         </p>
       ) : (
-        <div className="grid gap-x-10 gap-y-10 lg:grid-cols-12">
+        <div className="grid gap-x-8 gap-y-10 lg:grid-cols-12">
           {visible.map((id) => (
             <section
               key={id}
@@ -190,26 +207,32 @@ function Sequence({
   onDone: (id: string) => void;
 }) {
   if (!tasks.length) {
-    return <p className="text-sm text-muted">Nothing is scheduled for {formatDay(day)}. The week strip can move the day.</p>;
+    return (
+      <Tile className="min-h-0 border-dashed">
+        <p className="text-sm text-muted">Nothing is scheduled for {formatDay(day)}. The week strip can move the day.</p>
+      </Tile>
+    );
   }
   return (
-    <ol className="divide-y divide-line border-y border-line">
+    <ul className="grid gap-2">
       {tasks.map((task, index) => (
-        <li key={task.id} className="grid grid-cols-[2.5rem_1fr_auto] items-center gap-3 py-2">
-          <span className="font-display text-lg tabular-nums text-faint">{String(index + 1).padStart(2, "0")}</span>
-          <div className="min-w-0">
-            <p className="font-semibold">{task.title}</p>
-            <p className="text-sm text-muted">
-              {task.house} · {task.priority}
-              {task.due ? ` · ${formatDay(task.due)}` : ""}
-            </p>
+        <li key={task.id}>
+          <div className="grid grid-cols-[2.5rem_1fr_auto] items-center gap-3 border border-line bg-elevated px-3 py-2.5">
+            <span className="font-display text-lg tabular-nums text-faint">{String(index + 1).padStart(2, "0")}</span>
+            <div className="min-w-0">
+              <p className="font-semibold">{task.title}</p>
+              <p className="text-sm text-muted">
+                {task.house} · {task.priority}
+                {task.due ? ` · ${formatDay(task.due)}` : ""}
+              </p>
+            </div>
+            <Button variant="ghost" onClick={() => onDone(task.id)}>
+              Done
+            </Button>
           </div>
-          <Button variant="ghost" onClick={() => onDone(task.id)}>
-            Done
-          </Button>
         </li>
       ))}
-    </ol>
+    </ul>
   );
 }
 
@@ -234,28 +257,26 @@ function Attention({ today }: { today: string }) {
     if (order.sample || order.stage === "delivered") continue;
     if (order.due && order.due < today) rows.push({ id: order.id, label: `${order.number} is past its date`, href: "/brand", tone: "rust", mark: "Late" });
   }
-  if (!rows.length) return <p className="text-sm leading-relaxed text-muted">Nothing is late, and no decision is waiting. Use the day for the focus line above.</p>;
+  if (!rows.length) {
+    return (
+      <Tile className="min-h-0 border-dashed">
+        <p className="text-sm leading-relaxed text-muted">Nothing is late, and no decision is waiting. Use the day for the focus line above.</p>
+      </Tile>
+    );
+  }
   return (
-    <ul className="divide-y divide-line border-y border-line">
+    <ul className="grid gap-2">
       {rows.slice(0, 6).map((row) => (
         <li key={row.id}>
-          <Link to={row.href} className="flex min-h-12 items-center justify-between gap-3 py-2">
+          <Link
+            to={row.href}
+            className="flex min-h-12 items-center justify-between gap-3 border border-line bg-elevated px-3 py-2.5 hover:border-ink"
+          >
             <span className="text-sm">{row.label}</span>
             <Stamp tone={row.tone}>{row.mark}</Stamp>
           </Link>
         </li>
       ))}
     </ul>
-  );
-}
-
-function HouseLink({ href, name, detail }: { href: "/music" | "/brand" | "/lab"; name: string; detail: string }) {
-  return (
-    <li>
-      <Link to={href} className="flex min-h-14 flex-col justify-center py-2 md:flex-row md:items-baseline md:justify-between md:gap-6">
-        <span className="font-display text-lg">{name}</span>
-        <span className="text-sm text-muted">{detail}</span>
-      </Link>
-    </li>
   );
 }
