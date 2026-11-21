@@ -16,7 +16,7 @@ import {
 import { groupCode, parseOtp, secondsLeft, totp } from "@/lib/camos/otp";
 import { useDesk } from "@/lib/camos/store";
 import type { OtpEntry, OtpVaultV1, OtpVaultV2 } from "@/lib/camos/types";
-import { Button, Field, Input, Page, PageHead, Textarea } from "@/components/camos/ui";
+import { Button, Field, Input, Page, PageHead, Textarea, Tile, TileGrid } from "@/components/camos/ui";
 
 type OpenRow = { id: string; issuer: string; account: string; secret: string };
 
@@ -117,7 +117,6 @@ export function CodesView() {
     setBusy(true);
     setError("");
     try {
-      // Re-prompt passphrase is already known from unlock; user must re-enter for safety.
       if (!passphrase && !oldPass) {
         setError("Enter your current passphrase to add a recovery key.");
         setBusy(false);
@@ -226,7 +225,7 @@ export function CodesView() {
       />
 
       {newRecoveryPhrase ? (
-        <div className="mb-6 border border-brass bg-surface p-4">
+        <div className="mb-6 border border-brass bg-elevated p-4">
           <p className="text-sm font-semibold">Write this recovery phrase down offline.</p>
           <p className="mt-2 text-sm text-muted">
             24 words. It is the only way to open the vault if you forget the passphrase. It is never stored in CamOS or Supabase. You will not see it again.
@@ -249,7 +248,7 @@ export function CodesView() {
       ) : null}
 
       {!open ? (
-        <form className="space-y-4 border-t border-line pt-4" onSubmit={(event) => void unlock(event)}>
+        <form className="space-y-4 border border-line bg-elevated p-5" onSubmit={(event) => void unlock(event)}>
           <p className="text-sm text-muted">
             {vault
               ? "Open the vault with your passphrase or recovery phrase. Refreshing the page locks it again."
@@ -336,9 +335,9 @@ export function CodesView() {
           ) : null}
         </form>
       ) : (
-        <div className="border-t border-line pt-4">
+        <div>
           {migrationNeeded ? (
-            <div className="mb-6 border border-brass bg-surface p-4">
+            <div className="mb-6 border border-brass bg-elevated p-4">
               <p className="text-sm font-semibold">Add a recovery key</p>
               <p className="mt-2 text-sm text-muted">
                 This vault was created before recovery keys. Enter your current passphrase once to upgrade. Existing codes are kept.
@@ -353,9 +352,9 @@ export function CodesView() {
             </div>
           ) : null}
 
-          <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-muted">
-              {rows.length === 1 ? "1 account" : `${rows.length} accounts`} · {left}s
+              {rows.length === 1 ? "1 account" : `${rows.length} accounts`} · {left}s remaining
             </p>
             <div className="flex flex-wrap gap-2">
               {vault?.version === 2 ? (
@@ -373,7 +372,7 @@ export function CodesView() {
           </div>
 
           {changingPass && vault?.version === 2 ? (
-            <form className="mt-4 space-y-3 border border-line p-4" onSubmit={(event) => void submitChangePass(event)}>
+            <form className="mb-6 space-y-3 border border-line bg-elevated p-4" onSubmit={(event) => void submitChangePass(event)}>
               <h2 className="font-display text-xl">Change passphrase</h2>
               <p className="text-sm text-muted">Recovery phrase stays the same. Only the passphrase wrapper is updated.</p>
               <Field label="Current passphrase">
@@ -397,46 +396,55 @@ export function CodesView() {
             </form>
           ) : null}
 
-          <ul className="mt-4 divide-y divide-line border-y border-line">
-            {rows.map((row) => (
-              <li key={row.id} className="flex items-center gap-3 py-3">
-                <button
-                  type="button"
-                  className="min-w-0 flex-1 text-left"
-                  onClick={() => {
-                    const code = codes[row.id];
-                    if (!code) return;
-                    void navigator.clipboard.writeText(code);
-                    flashMsg("Code copied.");
-                  }}
-                >
-                  <span className="block text-sm font-semibold">{row.issuer}</span>
-                  <span className="block truncate text-sm text-muted">{row.account || "No account name"}</span>
-                  <span className="mt-1 block font-display text-3xl tabular-nums tracking-wide">
-                    {codes[row.id] ? groupCode(codes[row.id]) : "······"}
-                  </span>
-                </button>
-                {removing === row.id ? (
-                  <Button
-                    variant="danger"
+          {rows.length === 0 ? (
+            <Tile className="mb-6 min-h-0 border-dashed">
+              <p className="text-sm text-muted">No codes yet. Add one from the secret or the otpauth link the site shows.</p>
+            </Tile>
+          ) : (
+            <TileGrid cols={2} className="mb-6">
+              {rows.map((row) => (
+                <div key={row.id} className="relative">
+                  <button
+                    type="button"
+                    className="flex h-full min-h-[7.5rem] w-full flex-col border border-line bg-elevated p-4 text-left hover:border-ink"
                     onClick={() => {
-                      removeOtpEntry(row.id);
-                      setRows((current) => current.filter((item) => item.id !== row.id));
-                      setRemoving(null);
+                      const code = codes[row.id];
+                      if (!code) return;
+                      void navigator.clipboard.writeText(code);
+                      flashMsg("Code copied.");
                     }}
                   >
-                    Remove
-                  </Button>
-                ) : (
-                  <Button variant="ghost" onClick={() => setRemoving(row.id)}>
-                    Remove
-                  </Button>
-                )}
-              </li>
-            ))}
-          </ul>
-          {rows.length === 0 ? <p className="mt-4 text-sm text-muted">No codes yet. Add one from the secret or the otpauth link the site shows.</p> : null}
-          <form className="mt-6 space-y-4" onSubmit={(event) => void add(event)}>
+                    <p className="text-sm font-semibold">{row.issuer}</p>
+                    <p className="truncate text-sm text-muted">{row.account || "No account name"}</p>
+                    <p className="mt-auto pt-3 font-display text-3xl tabular-nums tracking-wide">
+                      {codes[row.id] ? groupCode(codes[row.id]) : "······"}
+                    </p>
+                  </button>
+                  <div className="absolute right-2 top-2">
+                    {removing === row.id ? (
+                      <Button
+                        variant="danger"
+                        className="min-h-9 px-2 text-xs"
+                        onClick={() => {
+                          removeOtpEntry(row.id);
+                          setRows((current) => current.filter((item) => item.id !== row.id));
+                          setRemoving(null);
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    ) : (
+                      <Button variant="ghost" className="min-h-9 px-2 text-xs" onClick={() => setRemoving(row.id)}>
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </TileGrid>
+          )}
+
+          <form className="space-y-4 border border-line bg-elevated p-5" onSubmit={(event) => void add(event)}>
             <h2 className="font-display text-2xl">Add a code</h2>
             <Field label="Service">
               <Input value={issuer} onChange={(event) => setIssuer(event.target.value)} placeholder="GitHub" />
