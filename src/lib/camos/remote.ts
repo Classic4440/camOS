@@ -5,8 +5,6 @@ import type { DeskData } from "./types";
 export const SUPABASE_URL = "https://qeebfpsqdwrjsgoclock.supabase.co";
 export const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_Nu8PnFSfMgtu61hhMToe0A_y72qNqrn";
 
-const ROW = "primary";
-
 export function dataHeaders(accessToken: string, extra?: Record<string, string>): HeadersInit {
   if (!accessToken || accessToken === SUPABASE_PUBLISHABLE_KEY || accessToken.startsWith("sb_publishable_")) {
     throw new Error("Anonymous desk access is refused.");
@@ -37,6 +35,7 @@ export async function anonymousDeskIsOpen(): Promise<boolean> {
   }
 }
 
+/** Ensure a private desk row exists for the current user (id = auth.uid()). */
 export async function claimOwner(accessToken: string): Promise<{ ok: true } | { ok: false; missing: boolean; error: string }> {
   let response: Response;
   try {
@@ -54,12 +53,14 @@ export async function claimOwner(accessToken: string): Promise<{ ok: true } | { 
   return { ok: false, missing, error: missing ? "The owner migration has not been run." : "The desk could not be claimed." };
 }
 
-export async function fetchRemoteDesk(accessToken: string): Promise<RemoteDesk> {
+/** Fetch the signed-in user's own desk (RLS: id = auth.uid()::text). */
+export async function fetchRemoteDesk(accessToken: string, userId: string): Promise<RemoteDesk> {
   let response: Response;
   try {
-    response = await fetch(`${SUPABASE_URL}/rest/v1/desk?id=eq.${ROW}&select=payload,updated_at`, {
-      headers: dataHeaders(accessToken),
-    });
+    response = await fetch(
+      `${SUPABASE_URL}/rest/v1/desk?id=eq.${encodeURIComponent(userId)}&select=payload,updated_at`,
+      { headers: dataHeaders(accessToken) },
+    );
   } catch (error) {
     return { ok: false, missing: false, error: error instanceof Error ? error.message : "Supabase did not answer." };
   }
@@ -76,6 +77,10 @@ export async function fetchRemoteDesk(accessToken: string): Promise<RemoteDesk> 
   }
   const row = rows[0];
   if (!row) return { ok: true, desk: null, updatedAt: null };
+  // Empty payload means a fresh user desk — treat as no desk yet.
+  if (!row.payload || (typeof row.payload === "object" && Object.keys(row.payload as object).length === 0)) {
+    return { ok: true, desk: null, updatedAt: row.updated_at ?? null };
+  }
   const parsed = parseDeskFile(JSON.stringify({ camos: 1, desk: row.payload }));
   if (!parsed.ok) return { ok: false, missing: false, error: parsed.error };
   return { ok: true, desk: parsed.desk, updatedAt: row.updated_at ?? null };
@@ -92,7 +97,12 @@ export async function saveRemoteDesk(
     response = await fetch(`${SUPABASE_URL}/rest/v1/desk?on_conflict=id`, {
       method: "POST",
       headers: dataHeaders(accessToken, { Prefer: "resolution=merge-duplicates,return=representation" }),
-      body: JSON.stringify({ id: ROW, owner_id: ownerId, payload: deskSnapshot(data), updated_at: updatedAt }),
+      body: JSON.stringify({
+        id: ownerId,
+        owner_id: ownerId,
+        payload: deskSnapshot(data),
+        updated_at: updatedAt,
+      }),
     });
   } catch (error) {
     return { ok: false, missing: false, error: error instanceof Error ? error.message : "Supabase did not answer." };
