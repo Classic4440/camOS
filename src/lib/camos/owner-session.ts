@@ -138,6 +138,57 @@ export function currentOwner(): OwnerUser | null {
   return state.status === "in" ? state.user : null;
 }
 
+/**
+ * Consume Supabase invite / magic-link tokens from the URL hash
+ * (`#access_token=…&refresh_token=…&type=invite`) and establish a session.
+ */
+export async function acceptInviteSession(): Promise<{ ok: true; email: string } | { ok: false; error: string }> {
+  if (typeof window === "undefined") return { ok: false, error: "Not in a browser." };
+
+  const hash = window.location.hash.replace(/^#/, "");
+  const params = new URLSearchParams(hash);
+  const access = params.get("access_token");
+  const refresh = params.get("refresh_token");
+  const errorDescription = params.get("error_description") || params.get("error");
+
+  if (errorDescription) {
+    return { ok: false, error: decodeURIComponent(errorDescription.replace(/\+/g, " ")) };
+  }
+
+  if (!access || !refresh) {
+    // Already signed in from a previous accept on this tab.
+    await ensureOwner();
+    if (state.status === "in") return { ok: true, email: state.user.email };
+    return { ok: false, error: "This invite link is invalid or has expired." };
+  }
+
+  const userResponse = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: authHeaders(access),
+  });
+  if (!userResponse.ok) {
+    return { ok: false, error: await errorText(userResponse) };
+  }
+  const userBody = (await userResponse.json()) as unknown;
+  const user = userFrom(userBody);
+  if (!user) return { ok: false, error: "Could not read the invited account." };
+
+  const expiresIn = Number(params.get("expires_in") || "3600");
+  writeStored({
+    access_token: access,
+    refresh_token: refresh,
+    expires_at: Math.floor(Date.now() / 1000) + (Number.isFinite(expiresIn) ? expiresIn : 3600),
+    user,
+  });
+  bootStarted = true;
+
+  // Clear tokens from the address bar.
+  const clean = `${window.location.pathname}${window.location.search}`;
+  window.history.replaceState(null, "", clean);
+
+  await recordSecurityEvent(access, user.id, "invite-accepted", deviceLabel());
+  return { ok: true, email: user.email };
+}
+
 export async function signInOwner(email: string, password: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
     method: "POST",
