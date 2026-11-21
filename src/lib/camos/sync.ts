@@ -27,15 +27,22 @@ function emit(next: SyncState) {
   for (const listener of listeners) listener();
 }
 
-function stamp(): string | null {
+function stampKey(userId: string): string {
+  return `${STAMP}:${userId}`;
+}
+
+function stamp(userId?: string | null): string | null {
   try {
-    return localStorage.getItem(STAMP);
+    if (!userId) return localStorage.getItem(STAMP);
+    return localStorage.getItem(stampKey(userId)) ?? localStorage.getItem(STAMP);
   } catch {
     return null;
   }
 }
 
-function setStamp(value: string) {
+function setStamp(userId: string, value: string) {
+  localStorage.setItem(stampKey(userId), value);
+  // Keep legacy key for older builds during transition.
   localStorage.setItem(STAMP, value);
 }
 
@@ -73,34 +80,34 @@ async function reconcile() {
   }
   const claim = await claimOwner(token);
   if (!claim.ok) {
-    emit(claim.missing ? { state: "needs-setup" } : { state: "offline", at: stamp(), error: claim.error });
+    emit(claim.missing ? { state: "needs-setup" } : { state: "offline", at: stamp(owner.id), error: claim.error });
     return;
   }
-  const remote = await fetchRemoteDesk(token);
+  const remote = await fetchRemoteDesk(token, owner.id);
   if (!remote.ok) {
-    emit(remote.missing ? { state: "needs-setup" } : { state: "offline", at: stamp(), error: remote.error });
+    emit(remote.missing ? { state: "needs-setup" } : { state: "offline", at: stamp(owner.id), error: remote.error });
     return;
   }
   if (!remote.desk || !remote.updatedAt) {
     await pushCurrent();
     return;
   }
-  const local = stamp();
+  const local = stamp(owner.id);
   if (!local) {
     emit({ state: "choose" });
     return;
   }
   if (remote.updatedAt > local) {
-    applyRemote(remote.desk, remote.updatedAt);
+    applyRemote(owner.id, remote.desk, remote.updatedAt);
     return;
   }
   emit({ state: "saved", at: local });
 }
 
-function applyRemote(desk: ReturnType<typeof deskSnapshot>, at: string) {
+function applyRemote(userId: string, desk: ReturnType<typeof deskSnapshot>, at: string) {
   applying = true;
   useDesk.getState().replaceDesk(desk);
-  setStamp(at);
+  setStamp(userId, at);
   lastSent = JSON.stringify(deskSnapshot(useDesk.getState()));
   applying = false;
   emit({ state: "saved", at });
@@ -115,10 +122,10 @@ async function pushCurrent() {
   }
   const result = await saveRemoteDesk(token, owner.id, useDesk.getState());
   if (!result.ok) {
-    emit(result.missing ? { state: "needs-setup" } : { state: "offline", at: stamp(), error: result.error });
+    emit(result.missing ? { state: "needs-setup" } : { state: "offline", at: stamp(owner.id), error: result.error });
     return;
   }
-  setStamp(result.updatedAt);
+  setStamp(owner.id, result.updatedAt);
   lastSent = JSON.stringify(deskSnapshot(useDesk.getState()));
   emit({ state: "saved", at: result.updatedAt });
 }
@@ -131,16 +138,17 @@ export async function uploadThisBrowser(): Promise<void> {
 export async function downloadCloud(): Promise<void> {
   emit({ state: "checking" });
   const token = await accessToken();
-  if (!token) {
+  const owner = currentOwner();
+  if (!token || !owner) {
     emit({ state: "locked" });
     return;
   }
-  const remote = await fetchRemoteDesk(token);
+  const remote = await fetchRemoteDesk(token, owner.id);
   if (!remote.ok || !remote.desk || !remote.updatedAt) {
-    emit({ state: "offline", at: stamp(), error: remote.ok ? "Nothing is stored in Supabase yet." : remote.error });
+    emit({ state: "offline", at: stamp(owner.id), error: remote.ok ? "Nothing is stored in Supabase yet." : remote.error });
     return;
   }
-  applyRemote(remote.desk, remote.updatedAt);
+  applyRemote(owner.id, remote.desk, remote.updatedAt);
 }
 
 function subscribe(listener: () => void) {
