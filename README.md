@@ -9,17 +9,17 @@
 
 ---
 
-## Place in the CAM collective
+## Place in the CAM ecosystem
 
-| Surface | Role |
-|---------|------|
-| **lanes** | Local-first studio — analysis, stems, MIDI, arrangement |
+| Repo | Role |
+|------|------|
+| [NoteLab2](https://github.com/Classic4440/NoteLab2) | Creation + learning workspace |
+| [lanes](https://github.com/Classic4440/lanes) | Local-first studio — analysis, stems, MIDI, arrangement |
 | **camOS** (this) | Private owner desk — manage releases, tasks, brand, vault, lab |
-| **camleinad** | Public artist website — present music and journal to the world |
+| [camleinad](https://github.com/Classic4440/camleinad) | Public artist website |
 
-Full architecture, data flows and integration priorities live in the **lanes** repo:
-
-→ https://github.com/Classic4440/lanes/blob/main/docs/SYSTEM_MAP.md
+Canonical system map (data flows, integration status, priorities):
+→ https://github.com/Classic4440/NoteLab2/blob/main/docs/SYSTEM_MAP.md
 
 camOS Music workspace (`/music`) is the natural bridge between private work and what eventually appears on the public site.
 
@@ -186,5 +186,6 @@ camOS is a private project of **Cam Leinad**, **CAM ALL MAY** and the Classic Br
 
 ## Changelog (2026-11-24)
 
-- Linked camOS into the CAM collective System Map (see lanes/docs/SYSTEM_MAP.md)
+- Included NoteLab2 in the ecosystem table
+- Pointed to the canonical SYSTEM_MAP in NoteLab2
 - Clarified that `/music` is the intended bridge to the public camleinad site
