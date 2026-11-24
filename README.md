@@ -9,6 +9,22 @@
 
 ---
 
+## Place in the CAM collective
+
+| Surface | Role |
+|---------|------|
+| **lanes** | Local-first studio — analysis, stems, MIDI, arrangement |
+| **camOS** (this) | Private owner desk — manage releases, tasks, brand, vault, lab |
+| **camleinad** | Public artist website — present music and journal to the world |
+
+Full architecture, data flows and integration priorities live in the **lanes** repo:
+
+→ https://github.com/Classic4440/lanes/blob/main/docs/SYSTEM_MAP.md
+
+camOS Music workspace (`/music`) is the natural bridge between private work and what eventually appears on the public site.
+
+---
+
 ## Access model
 
 CamOS is a **private, single-owner desk**. It is not a multi-user product.
@@ -165,3 +181,10 @@ Collaborators push to `main` or open a pull request. Please run `npm run typeche
 ## License and ownership
 
 camOS is a private project of **Cam Leinad**, **CAM ALL MAY** and the Classic Brand team. All rights reserved.
+
+---
+
+## Changelog (2026-11-24)
+
+- Linked camOS into the CAM collective System Map (see lanes/docs/SYSTEM_MAP.md)
+- Clarified that `/music` is the intended bridge to the public camleinad site
